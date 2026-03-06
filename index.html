@@ -10,7 +10,7 @@
     <!-- PWA Meta Tags untuk iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="18+">
+    <meta name="apple-mobile-web-app-title" content="AI Assistant">
     <link rel="apple-touch-icon" href="icon.png">
 
     <!-- Fonts -->
@@ -196,13 +196,13 @@
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-900 h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-gray-50 text-gray-900 h-[100dvh] flex flex-col font-sans overflow-hidden">
 
     <!-- Header -->
     <header
-        class="bg-white px-5 py-4 border-b border-gray-200 flex justify-between items-center z-10 w-full shrink-0 shadow-sm">
+        class="bg-white px-4 py-2.5 border-b border-gray-200 flex justify-between items-center z-10 w-full shrink-0 shadow-sm">
         <div class="flex items-center">
-            <svg class="h-9 w-9" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#"
+            <svg class="h-7 w-7" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#"
                 xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
                 xmlns:svg="http://www.w3.org/2000/svg" version="1.1" fill="#000000">
                 <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
@@ -237,13 +237,20 @@
                         style="fill:#ff4b00;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
                 </g>
             </svg>
-            <span class="text-[1.35rem] font-black text-gray-900 tracking-tight ml-2">18+</span>
+            <span class="text-xl font-black text-gray-900 tracking-tight ml-2">18+</span>
         </div>
-        <button id="btn-settings"
-            class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 p-2 rounded-lg transition-colors flex items-center justify-center text-2xl outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 shrink-0"
-            aria-label="Settings">
-            <i class="ph ph-gear"></i>
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="btn-clear-chat"
+                class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors flex items-center justify-center text-xl outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 shrink-0"
+                title="Hapus Riwayat Percakapan" aria-label="Hapus Chat">
+                <i class="ph ph-arrow-counter-clockwise"></i>
+            </button>
+            <button id="btn-settings"
+                class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 p-2 rounded-lg transition-colors flex items-center justify-center text-xl outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 shrink-0"
+                aria-label="Settings">
+                <i class="ph ph-gear"></i>
+            </button>
+        </div>
     </header>
 
     <div class="flex-1 w-full flex justify-center overflow-hidden bg-transparent">
@@ -297,8 +304,9 @@
     <!-- Settings Modal -->
     <div id="settings-modal"
         class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden justify-center items-center z-[100] p-5">
-        <div class="modal-content bg-white w-full max-w-[400px] rounded-3xl p-6 shadow-2xl">
-            <div class="flex justify-between items-center mb-5">
+        <div
+            class="modal-content bg-white w-full max-w-[400px] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-6 pb-4 border-b border-gray-100 shrink-0">
                 <h2 class="text-xl font-semibold">Pengaturan</h2>
                 <button id="btn-close-settings"
                     class="text-gray-500 hover:bg-gray-100 hover:text-gray-900 p-2 rounded-lg transition-colors flex items-center justify-center text-xl outline-none">
@@ -306,79 +314,126 @@
                 </button>
             </div>
 
-            <div class="mb-4">
-                <label for="api-key" class="block text-sm font-medium mb-2 text-gray-900">Gemini API Key</label>
-                <input type="password" id="api-key"
-                    class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors"
-                    placeholder="AIzaSy...">
-            </div>
+            <div class="p-6 overflow-y-auto" style="-ms-overflow-style: none; scrollbar-width: none;">
+                <div class="mb-4">
+                    <label for="api-key" class="block text-sm font-medium mb-2 text-gray-900">Gemini API Key</label>
+                    <input type="password" id="api-key"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors"
+                        placeholder="AIzaSy...">
+                </div>
 
-            <div class="mb-4 bg-gray-50 p-4 rounded-2xl border border-gray-200/60 shadow-sm">
-                <label class="block text-[0.9rem] font-semibold mb-3 text-gray-800">Pilihan Model AI</label>
-                <div class="relative w-full" id="custom-model-dropdown">
-                    <!-- Hidden input to store value -->
-                    <input type="hidden" id="ai-model" value="gemini-3.1-flash-lite-preview">
+                <div class="mb-4 bg-gray-50 p-4 rounded-2xl border border-gray-200/60 shadow-sm">
+                    <label class="block text-[0.9rem] font-semibold mb-3 text-gray-800">Pilihan Model AI</label>
+                    <div class="relative w-full" id="custom-model-dropdown">
+                        <!-- Hidden input to store value -->
+                        <input type="hidden" id="ai-model" value="gemini-3.1-flash-lite-preview">
 
-                    <!-- Dropdown Button -->
-                    <button type="button" id="dropdown-button"
-                        class="w-full flex justify-between items-center px-4 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] text-left outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm">
-                        <span id="dropdown-selected-text" class="flex items-center gap-2 font-medium text-gray-700">
-                            Gemini 3.1 Flash
-                        </span>
-                        <i class="ph ph-caret-down text-gray-400 transition-transform duration-200"
-                            id="dropdown-caret"></i>
-                    </button>
+                        <!-- Dropdown Button -->
+                        <button type="button" id="dropdown-button"
+                            class="w-full flex justify-between items-center px-4 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] text-left outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm">
+                            <span id="dropdown-selected-text" class="flex items-center gap-2 font-medium text-gray-700">
+                                Gemini 3.1 Flash
+                            </span>
+                            <i class="ph ph-caret-down text-gray-400 transition-transform duration-200"
+                                id="dropdown-caret"></i>
+                        </button>
 
-                    <!-- Dropdown Menu -->
-                    <div id="dropdown-menu"
-                        class="absolute z-10 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 invisible translate-y-[-10px] transition-all duration-200 origin-top overflow-hidden">
-                        <ul class="py-1">
-                            <li>
-                                <button type="button"
-                                    class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors dropdown-item"
-                                    data-value="gemini-3.1-flash-lite-preview" data-name="Gemini 3.1 Flash">
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Flash</div>
-                                        <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Cepat & efisien
-                                            (Rekomendasi)</div>
-                                    </div>
-                                    <i
-                                        class="ph-bold ph-check text-primary opacity-100 text-lg check-icon transition-opacity duration-200"></i>
-                                </button>
-                            </li>
-                            <li>
-                                <button type="button"
-                                    class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100 dropdown-item"
-                                    data-value="gemini-3.1-pro-preview" data-name="Gemini 3.1 Pro">
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Pro</div>
-                                        <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Tugas kompleks &
-                                            logika berat</div>
-                                    </div>
-                                    <i
-                                        class="ph-bold ph-check text-primary opacity-0 text-lg check-icon transition-opacity duration-200"></i>
-                                </button>
-                            </li>
-                        </ul>
+                        <!-- Dropdown Menu -->
+                        <div id="dropdown-menu"
+                            class="absolute z-10 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 invisible translate-y-[-10px] transition-all duration-200 origin-top overflow-hidden">
+                            <ul class="py-1">
+                                <li>
+                                    <button type="button"
+                                        class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors dropdown-item"
+                                        data-value="gemini-3.1-flash-lite-preview" data-name="Gemini 3.1 Flash">
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Flash
+                                            </div>
+                                            <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Cepat &
+                                                efisien
+                                                (Rekomendasi)</div>
+                                        </div>
+                                        <i
+                                            class="ph-bold ph-check text-primary opacity-100 text-lg check-icon transition-opacity duration-200"></i>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button"
+                                        class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100 dropdown-item"
+                                        data-value="gemini-3.1-pro-preview" data-name="Gemini 3.1 Pro">
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Pro</div>
+                                            <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Tugas kompleks
+                                                &
+                                                logika berat</div>
+                                        </div>
+                                        <i
+                                            class="ph-bold ph-check text-primary opacity-0 text-lg check-icon transition-opacity duration-200"></i>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button"
+                                        class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100 dropdown-item"
+                                        data-value="gemini-2.5-flash" data-name="Gemini 2.5 Flash">
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 2.5 Flash
+                                            </div>
+                                            <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Cepat &
+                                                efisien
+                                                (Terbaru)</div>
+                                        </div>
+                                        <i
+                                            class="ph-bold ph-check text-primary opacity-0 text-lg check-icon transition-opacity duration-200"></i>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button"
+                                        class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100 dropdown-item"
+                                        data-value="gemini-2.5-pro" data-name="Gemini 2.5 Pro">
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 2.5 Pro</div>
+                                            <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Tugas kompleks
+                                                &
+                                                logika berat (Terbaru)</div>
+                                        </div>
+                                        <i
+                                            class="ph-bold ph-check text-primary opacity-0 text-lg check-icon transition-opacity duration-200"></i>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
+                </div>
+
+                <div
+                    class="mb-5 flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200/60 shadow-sm">
+                    <div>
+                        <label class="block text-[0.9rem] font-semibold text-gray-800">Google Search Grounding</label>
+                        <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Izinkan AI mengakses web terbaru
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="google-grounding" class="sr-only peer">
+                        <div
+                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                        </div>
+                    </label>
+                </div>
+
+                <div class="mb-2">
+                    <label for="system-prompt" class="block text-sm font-medium mb-2 text-gray-900">System Prompt
+                        (Konteks)</label>
+                    <textarea id="system-prompt" rows="3"
+                        class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors resize-none"
+                        placeholder="Contoh: Anda adalah asisten virtual yang ramah dan menggunakan bahasa Indonesia yang baku."></textarea>
                 </div>
             </div>
 
-            <div class="mb-5">
-                <label for="system-prompt" class="block text-sm font-medium mb-2 text-gray-900">System Prompt
-                    (Konteks)</label>
-                <textarea id="system-prompt" rows="3"
-                    class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors resize-none"
-                    placeholder="Contoh: Anda adalah asisten virtual yang ramah dan menggunakan bahasa Indonesia yang baku."></textarea>
+            <div class="p-6 pt-4 border-t border-gray-100 shrink-0 bg-white">
+                <button id="btn-save-settings"
+                    class="w-full py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-base font-medium transition-colors outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">Simpan
+                    Pengaturan</button>
             </div>
-
-            <button id="btn-save-settings"
-                class="w-full py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-base font-medium transition-colors mt-2 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">Simpan
-                Pengaturan</button>
-
-            <button id="btn-clear-chat"
-                class="w-full py-3 bg-transparent hover:bg-red-50 text-red-500 border border-red-500 rounded-xl text-[0.95rem] font-medium transition-colors mt-3 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Hapus
-                Riwayat Chat</button>
         </div>
     </div>
 
@@ -539,6 +594,10 @@
         const getAPIKey = () => localStorage.getItem('gemini_api_key') || '';
         const getSystemPrompt = () => localStorage.getItem('gemini_sys_prompt') || '';
         const getAIModel = () => localStorage.getItem('gemini_ai_model') || 'gemini-3.1-flash-lite-preview';
+        const getGrounding = () => localStorage.getItem('gemini_grounding') === 'true';
+
+        // Additional setting elements
+        const googleGroundingToggle = document.getElementById('google-grounding');
 
         // Handle input change
         promptInput.addEventListener('input', function () {
@@ -726,6 +785,13 @@
                     contents: formattedHistory
                 };
 
+                const useGrounding = getGrounding();
+                if (useGrounding) {
+                    payload.tools = [
+                        { googleSearch: {} }
+                    ];
+                }
+
                 const sysPrompt = getSystemPrompt();
                 if (sysPrompt) {
                     payload.system_instruction = { parts: { text: sysPrompt } };
@@ -825,6 +891,7 @@
             apiKeyInput.value = getAPIKey();
             systemPromptInput.value = getSystemPrompt();
             updateDropdownUI(getAIModel());
+            googleGroundingToggle.checked = getGrounding();
 
             // Tailwind approach to show modal
             settingsModal.classList.remove('hidden');
@@ -855,6 +922,7 @@
             localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
             localStorage.setItem('gemini_sys_prompt', systemPromptInput.value.trim());
             localStorage.setItem('gemini_ai_model', aiModelSelect.value);
+            localStorage.setItem('gemini_grounding', googleGroundingToggle.checked);
             closeSettings();
         });
 
@@ -884,6 +952,26 @@
                 }
             } catch (error) {
                 console.error("Failed to load app data:", error);
+            }
+        });
+        // --- iOS Keyboard Fix ---
+        // Safari iOS sometimes doesn't reset viewport when keyboard is dismissed manually
+        const fixIOSKeyboardLayout = () => {
+            window.scrollTo(0, 0);
+            document.body.scrollTop = 0;
+        };
+
+        promptInput.addEventListener('blur', () => {
+            // Add a small timeout to allow UI interactions (like clicking send button) to complete first
+            setTimeout(fixIOSKeyboardLayout, 100);
+        });
+
+        // Apply to any other focusable inputs
+        document.querySelectorAll('input, textarea').forEach(el => {
+            if (el !== promptInput) {
+                el.addEventListener('blur', () => {
+                    setTimeout(fixIOSKeyboardLayout, 100);
+                });
             }
         });
     </script>
