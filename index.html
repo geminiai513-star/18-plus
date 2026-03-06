@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>AI Assistant</title>
+
+    <!-- PWA Meta Tags untuk iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AI Assistant">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            DEFAULT: '#007aff',
+                            hover: '#0062cc',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom styles that are tricky with utility classes alone */
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        body {
+            -webkit-tap-highlight-color: transparent;
+            padding-top: var(--safe-top);
+            padding-bottom: var(--safe-bottom);
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #6b7280;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: blink 1.4s infinite both;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 0.2;
+                transform: scale(0.8);
+            }
+
+            20% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+
+            100% {
+                opacity: 0.2;
+                transform: scale(0.8);
+            }
+        }
+
+        /* Modal animation */
+        #settings-modal.active {
+            display: flex;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #settings-modal {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #settings-modal .modal-content {
+            transform: translateY(20px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #settings-modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        /* Markdown formatting in AI responses */
+        .markdown-content p {
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .markdown-content pre {
+            background: #e5e7eb;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .markdown-content code {
+            font-family: monospace;
+            background: #e5e7eb;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+        }
+
+        .markdown-content strong {
+            font-weight: 600;
+        }
+
+        .markdown-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #d1d5db;
+            padding: 0.5rem;
+        }
+
+        .markdown-content th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+        }
+
+        textarea::-webkit-scrollbar {
+            display: none;
+        }
+
+        textarea {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        #chat-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        #chat-container {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- Header -->
+    <header
+        class="bg-white px-5 py-4 border-b border-gray-200 flex justify-between items-center z-10 w-full shrink-0 shadow-sm">
+        <div class="flex items-center">
+            <svg class="h-9 w-9" viewBox="0 0 60.601004 60.601004" xmlns:cc="http://creativecommons.org/ns#"
+                xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+                xmlns:svg="http://www.w3.org/2000/svg" version="1.1" fill="#000000">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                    <defs></defs>
+                    <metadata>
+                        <rdf:rdf>
+                            <cc:work rdf:about="">
+                                <dc:format>image/svg+xml</dc:format>
+                                <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"></dc:type>
+                                <dc:title>禁煙; No smoking</dc:title>
+                                <dc:source>http://www.ecomo.or.jp/barrierfree/pictogram/data/zukigo_panfu_jis110.pdf
+                                </dc:source>
+                            </cc:work>
+                        </rdf:rdf>
+                    </metadata>
+                    <path d="m 13.501751,34.706753 0,4.80125 28.810001,0 0,-4.80125 -28.810001,0 z"
+                        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                    <path d="m 43.110502,34.706753 0,4.80125 1.60125,0 0,-4.80125 -1.60125,0 z"
+                        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                    <path d="m 45.511753,34.706753 0,4.80125 1.60125,0 0,-4.80125 -1.60125,0 z"
+                        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                    <path
+                        d="m 38.388002,19.440502 c 0.05875,-0.19625 0.09,-0.405 0.09,-0.62 0,-1.205 -0.9775,-2.1825 -2.1825,-2.1825 l -3.34,0 0.7325,-2.7275 2.7475,0 c 2.41,0 4.365,1.95375 4.365,4.36375 0,0.20375 -0.07,0.70125 -0.17375,1.04 l -0.23,0.78875 4.1225,0 c 1.84375,0 3.3375,1.4925 3.3375,3.335 0,0.14125 -0.01125,0.28125 -0.02875,0.4175 l -1.12625,8.945 -1.0275,0 0.345,-8.345 c 0.0012,-0.0275 0.0025,-0.05625 0.0025,-0.085 0,-1.1775 -0.95625,-2.13375 -2.13375,-2.13375 l -5.23375,0 c -0.45125,0 -0.81875,-0.36625 -0.81875,-0.81875 0,-0.08 0.01375,-0.1575 0.035,-0.23125 l 0.5175,-1.74625"
+                        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                    <path
+                        d="m 31.764252,21.003002 c -3.3875,0 -6.135,-2.7475 -6.135,-6.13625 0,-1.27625 0.39125,-2.46125 1.06,-3.4425 l -3.15625,0 c -0.49625,1.0425 -0.77625,2.21 -0.77625,3.4425 0,4.42 3.5825,8.0025 8.00125,8.0025 l 0.61125,0 c 0.96375,2.4975 3.38625,4.26875 6.2225,4.26875 l 4.36125,0 c 0.83625,0 1.5225,0.6425 1.59375,1.46125 l 0.36125,4.20125 0.75375,0 0,-4.8625 c 0,-1.32625 -1.075,-2.4 -2.4,-2.4 l -4.36125,0 c -2.30625,0 -4.19875,-1.775 -4.385,-4.0325 -0.02375,-0.28125 -0.2575,-0.5025 -0.545,-0.5025 l -1.20625,0"
+                        style="fill:#000000;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                    <path
+                        d="m 47.240503,44.144253 -30.78375,-30.7825 c 3.7775,-3.1075 8.61625,-4.9750003 13.88875,-4.9750003 12.07625,0 21.86875,9.7925003 21.86875,21.8700003 0,5.27375 -1.86625,10.11 -4.97375,13.8875 z m -16.895,7.98375 c -12.07875,0 -21.8712503,-9.79125 -21.8712503,-21.87125 0,-5.22875 1.8375003,-10.02875 4.9000003,-13.7925 l 30.76375,30.7625 c -3.76375,3.0625 -8.5625,4.90125 -13.7925,4.90125 z M 30.301753,2.9617527 c -15.09875,0 -27.3387503,12.2412503 -27.3387503,27.3387503 0,15.0975 12.2400003,27.33875 27.3387503,27.33875 15.09625,0 27.33625,-12.24125 27.33625,-27.33875 0,-15.0975 -12.24,-27.3387503 -27.33625,-27.3387503"
+                        style="fill:#ff4b00;fill-opacity:1;fill-rule:nonzero;stroke:none"></path>
+                </g>
+            </svg>
+            <span class="text-[1.35rem] font-black text-gray-900 tracking-tight ml-2">18+</span>
+        </div>
+        <button id="btn-settings"
+            class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 p-2 rounded-lg transition-colors flex items-center justify-center text-2xl outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 shrink-0"
+            aria-label="Settings">
+            <i class="ph ph-gear"></i>
+        </button>
+    </header>
+
+    <div class="flex-1 w-full flex justify-center overflow-hidden bg-transparent">
+        <div class="w-full max-w-3xl flex flex-col h-full relative border-none bg-transparent mx-auto">
+            <!-- Chat Area -->
+            <main id="chat-container"
+                class="flex-1 overflow-y-auto w-full px-4 sm:px-6 pt-6 pb-12 flex flex-col gap-5 scroll-smooth relative">
+                <!-- Messages will be injected here -->
+            </main>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator"
+                class="typing-indicator hidden self-start bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-sm w-fit flex items-center gap-1">
+                <span class="w-1.5 h-1.5 bg-gray-500 rounded-full block shrink-0"
+                    style="animation: blink 1.4s infinite both; animation-delay: 0s;"></span>
+                <span class="w-1.5 h-1.5 bg-gray-500 rounded-full block shrink-0"
+                    style="animation: blink 1.4s infinite both; animation-delay: 0.2s;"></span>
+                <span class="w-1.5 h-1.5 bg-gray-500 rounded-full block shrink-0"
+                    style="animation: blink 1.4s infinite both; animation-delay: 0.4s;"></span>
+            </div>
+
+            <!-- File Preview Area -->
+            <div id="file-preview-container"
+                class="hidden px-4 sm:px-6 pt-3 pb-2 grid grid-cols-2 md:grid-cols-4 gap-3 w-full">
+            </div>
+
+            <!-- Input Area -->
+            <div class="w-full bg-transparent pb-4 pt-3 px-4 sm:px-6 shrink-0">
+                <input type="file" id="file-upload" class="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    multiple />
+                <div
+                    class="flex items-end bg-gray-100 rounded-[28px] focus-within:bg-gray-200/50 transition-colors duration-200 w-full p-1">
+                    <button id="btn-upload"
+                        class="text-gray-500 hover:text-gray-700 bg-transparent flex-shrink-0 flex items-center justify-center cursor-pointer transition-colors active:scale-95 outline-none w-[42px] h-[42px] rounded-full"
+                        aria-label="Upload File">
+                        <i class="ph ph-plus text-xl font-bold"></i>
+                    </button>
+                    <textarea id="prompt-input" rows="1"
+                        class="flex-1 bg-transparent border-none py-[10px] px-2 text-[0.95rem] resize-none overflow-hidden max-h-[120px] min-h-[42px] outline-none leading-[22px] block m-0 align-middle focus:ring-0"
+                        placeholder="Ketik pesan kepada AI..." aria-label="Message"></textarea>
+                    <button id="btn-send" disabled
+                        class="bg-black text-white hover:bg-gray-800 disabled:bg-gray-200/60 disabled:text-gray-400 disabled:shadow-none flex-shrink-0 flex items-center justify-center cursor-pointer transition-all disabled:cursor-not-allowed active:scale-95 outline-none w-[42px] h-[42px] rounded-full shadow-sm"
+                        aria-label="Send">
+                        <i class="ph-bold ph-arrow-right text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal"
+        class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden justify-center items-center z-[100] p-5">
+        <div class="modal-content bg-white w-full max-w-[400px] rounded-3xl p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-5">
+                <h2 class="text-xl font-semibold">Pengaturan</h2>
+                <button id="btn-close-settings"
+                    class="text-gray-500 hover:bg-gray-100 hover:text-gray-900 p-2 rounded-lg transition-colors flex items-center justify-center text-xl outline-none">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <label for="api-key" class="block text-sm font-medium mb-2 text-gray-900">Gemini API Key</label>
+                <input type="password" id="api-key"
+                    class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors"
+                    placeholder="AIzaSy...">
+            </div>
+
+            <div class="mb-4 bg-gray-50 p-4 rounded-2xl border border-gray-200/60 shadow-sm">
+                <label class="block text-[0.9rem] font-semibold mb-3 text-gray-800">Pilihan Model AI</label>
+                <div class="relative w-full" id="custom-model-dropdown">
+                    <!-- Hidden input to store value -->
+                    <input type="hidden" id="ai-model" value="gemini-3.1-flash-lite-preview">
+
+                    <!-- Dropdown Button -->
+                    <button type="button" id="dropdown-button"
+                        class="w-full flex justify-between items-center px-4 py-3 bg-white border border-gray-200 rounded-xl text-[0.95rem] text-left outline-none hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm">
+                        <span id="dropdown-selected-text" class="flex items-center gap-2 font-medium text-gray-700">
+                            Gemini 3.1 Flash
+                        </span>
+                        <i class="ph ph-caret-down text-gray-400 transition-transform duration-200"
+                            id="dropdown-caret"></i>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div id="dropdown-menu"
+                        class="absolute z-10 w-full mt-2 bg-white border border-gray-100 rounded-xl shadow-xl opacity-0 invisible translate-y-[-10px] transition-all duration-200 origin-top overflow-hidden">
+                        <ul class="py-1">
+                            <li>
+                                <button type="button"
+                                    class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors dropdown-item"
+                                    data-value="gemini-3.1-flash-lite-preview" data-name="Gemini 3.1 Flash">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Flash</div>
+                                        <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Cepat & efisien
+                                            (Rekomendasi)</div>
+                                    </div>
+                                    <i
+                                        class="ph-bold ph-check text-primary opacity-100 text-lg check-icon transition-opacity duration-200"></i>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button"
+                                    class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-t border-gray-100 dropdown-item"
+                                    data-value="gemini-3.1-pro-preview" data-name="Gemini 3.1 Pro">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-800 text-[0.95rem]">Gemini 3.1 Pro</div>
+                                        <div class="text-[0.8rem] text-gray-500 leading-tight mt-0.5">Tugas kompleks &
+                                            logika berat</div>
+                                    </div>
+                                    <i
+                                        class="ph-bold ph-check text-primary opacity-0 text-lg check-icon transition-opacity duration-200"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-5">
+                <label for="system-prompt" class="block text-sm font-medium mb-2 text-gray-900">System Prompt
+                    (Konteks)</label>
+                <textarea id="system-prompt" rows="3"
+                    class="w-full px-4 py-3 border border-gray-200 rounded-xl text-[0.95rem] outline-none bg-gray-50 focus:border-primary transition-colors resize-none"
+                    placeholder="Contoh: Anda adalah asisten virtual yang ramah dan menggunakan bahasa Indonesia yang baku."></textarea>
+            </div>
+
+            <button id="btn-save-settings"
+                class="w-full py-3.5 bg-primary hover:bg-primary-hover text-white rounded-xl text-base font-medium transition-colors mt-2 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">Simpan
+                Pengaturan</button>
+
+            <button id="btn-clear-chat"
+                class="w-full py-3 bg-transparent hover:bg-red-50 text-red-500 border border-red-500 rounded-xl text-[0.95rem] font-medium transition-colors mt-3 outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Hapus
+                Riwayat Chat</button>
+        </div>
+    </div>
+
+    <script>
+        // Hapus Service Worker lama secara paksa agar browser memuat HTML baru
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                for (let registration of registrations) {
+                    registration.unregister();
+                    console.log('Service Worker lama berhasil dihapus');
+                }
+            });
+        }
+
+        // --- IndexedDB Setup ---
+        const DB_NAME = 'AIChatDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'messages';
+        let db;
+
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                request.onerror = (event) => reject('IndexedDB error: ' + event.target.errorCode);
+
+                request.onsuccess = (event) => {
+                    db = event.target.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('timestamp', 'timestamp', { unique: false });
+                    }
+                };
+            });
+        };
+
+        const saveMessage = (role, text, parts = null) => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const message = { role, text, parts, timestamp: Date.now() };
+                const request = store.add(message);
+
+                request.onsuccess = () => resolve(message);
+                request.onerror = () => reject('Gagal menyimpan pesan');
+            });
+        };
+
+        const loadMessages = () => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject('Gagal memuat pesan');
+            });
+        };
+
+        const clearMessages = () => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.clear();
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject('Gagal menghapus pesan');
+            });
+        };
+
+        // --- App Logic ---
+        const chatContainer = document.getElementById('chat-container');
+        const promptInput = document.getElementById('prompt-input');
+        const btnSend = document.getElementById('btn-send');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        const fileUpload = document.getElementById('file-upload');
+        const btnUpload = document.getElementById('btn-upload');
+        const filePreviewContainer = document.getElementById('file-preview-container');
+        let currentAttachedFiles = [];
+
+        // Settings elements
+        const settingsModal = document.getElementById('settings-modal');
+        const btnSettings = document.getElementById('btn-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const aiModelSelect = document.getElementById('ai-model');
+        const apiKeyInput = document.getElementById('api-key');
+        const systemPromptInput = document.getElementById('system-prompt');
+        const btnSaveSettings = document.getElementById('btn-save-settings');
+        const btnClearChat = document.getElementById('btn-clear-chat');
+
+        let chatHistory = [];
+
+        // Config marked
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+        }
+
+        // Markdown parsing
+        function formatMarkdown(text) {
+            if (typeof marked !== 'undefined') {
+                return marked.parse(text);
+            }
+            return text;
+        }
+
+        const renderMessage = (role, text) => {
+            // Remove empty state if exists
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.remove();
+
+            const msgDiv = document.createElement('div');
+            // Tailwind classes for messages
+            const baseClasses = "max-w-[85%] px-4 py-3 rounded-2xl text-[0.95rem] leading-relaxed break-words animate-[fadeIn_0.3s_ease-out]";
+
+            if (role === 'ai') {
+                msgDiv.className = `${baseClasses} self-start bg-gray-100 text-gray-800 rounded-bl-sm markdown-content`;
+                msgDiv.innerHTML = formatMarkdown(text);
+            } else {
+                msgDiv.className = `${baseClasses} self-end bg-sky-100 text-sky-800 rounded-br-sm`;
+                msgDiv.textContent = text;
+            }
+
+            // Add keyframes dynamically if not present (Tailwind doesn't have a built-in simple fadeIn without configuring)
+            if (!document.getElementById('fade-style')) {
+                const style = document.createElement('style');
+                style.id = 'fade-style';
+                style.textContent = `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`;
+                document.head.appendChild(style);
+            }
+
+            chatContainer.appendChild(msgDiv);
+            scrollToBottom();
+        };
+
+        const renderEmptyState = () => {
+            chatContainer.innerHTML = `
+                <div id="empty-state" class="flex flex-col items-center justify-center h-full text-gray-500 text-center">
+                    <i class="ph ph-chat-teardrop-dots text-5xl mb-4 opacity-50"></i>
+                    <h3 class="text-lg font-medium">Belum ada pesan</h3>
+                    <p class="text-sm mt-2">Ketik sesuatu untuk mulai ngobrol dengan AI!</p>
+                </div>
+            `;
+        };
+
+        const scrollToBottom = () => {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+
+        const getAPIKey = () => localStorage.getItem('gemini_api_key') || '';
+        const getSystemPrompt = () => localStorage.getItem('gemini_sys_prompt') || '';
+        const getAIModel = () => localStorage.getItem('gemini_ai_model') || 'gemini-3.1-flash-lite-preview';
+
+        // Handle input change
+        promptInput.addEventListener('input', function () {
+            btnSend.disabled = this.value.trim().length === 0 && currentAttachedFiles.length === 0;
+        });
+
+        // File Logic
+        btnUpload.addEventListener('click', () => fileUpload.click());
+
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        async function processFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const fileSize = file.size; // bytes
+
+            if (file.type.startsWith('image/')) {
+                const base64 = await toBase64(file);
+                return { type: 'inline', mimeType: file.type, data: base64.split(',')[1], name: file.name, size: fileSize };
+            } else if (ext === 'pdf' || file.type === 'application/pdf') {
+                const base64 = await toBase64(file);
+                return { type: 'inline', mimeType: 'application/pdf', data: base64.split(',')[1], name: file.name, size: fileSize };
+            } else if (ext === 'txt') {
+                const text = await file.text();
+                return { type: 'text', text: `[Isi File: ${file.name}]\n${text}`, name: file.name, size: fileSize };
+            } else if (ext === 'xlsx' || ext === 'xls') {
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer);
+                let text = '';
+                workbook.SheetNames.forEach(sheetName => {
+                    text += `\n[Sheet: ${sheetName}]\n` + XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                });
+                return { type: 'text', text: `[Isi File Excel: ${file.name}]\n${text}`, name: file.name, size: fileSize };
+            } else if (ext === 'doc' || ext === 'docx') {
+                const arrayBuffer = await file.arrayBuffer();
+                try {
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    return { type: 'text', text: `[Isi File Word: ${file.name}]\n${result.value}`, name: file.name, size: fileSize };
+                } catch (err) {
+                    console.error(err);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        window.removeAttachedFile = (index) => {
+            currentAttachedFiles.splice(index, 1);
+            renderFilePreview();
+            if (currentAttachedFiles.length === 0 && promptInput.value.trim() === '') btnSend.disabled = true;
+        };
+
+        function formatBytes(bytes, decimals = 1) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+
+            const wordSvg = `<svg class="w-7 h-7" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" xml:space="preserve"><style type="text/css">.wst0{fill:#41A5EE;} .wst1{fill:#2B7CD3;} .wst2{fill:#185ABD;} .wst3{fill:#103F91;} .wst4{opacity:0.1;} .wst5{opacity:0.2;} .wst6{fill:url(#wSVGID_1_);} .wst7{fill:#FFFFFF;}</style><path class="wst0" d="M490.17,19.2H140.9c-12.05,0-21.83,9.72-21.83,21.7l0,0v96.7l202.42,59.2L512,137.6V40.9 C512,28.91,502.23,19.2,490.17,19.2z"/><path class="wst1" d="M512,137.6H119.07V256l202.42,35.52L512,256V137.6z"/><path class="wst2" d="M119.07,256v118.4l190.51,23.68L512,374.4V256H119.07z"/><path class="wst3" d="M140.9,492.8h349.28c12.05,0,21.83-9.72,21.83-21.7l0,0v-96.7H119.07v96.7  C119.07,483.09,128.84,492.8,140.9,492.8z"/><path class="wst4" d="M263.94,113.92H119.07v296h144.87c12.04-0.04,21.79-9.73,21.83-21.7v-252.6 C285.73,123.65,275.98,113.96,263.94,113.92z"/><path class="wst5" d="M252.04,125.76H119.07v296h132.97c12.04-0.04,21.79-9.73,21.83-21.7v-252.6  C273.82,135.49,264.07,125.8,252.04,125.76z"/><path class="wst5" d="M252.04,125.76H119.07v272.32h132.97c12.04-0.04,21.79-9.73,21.83-21.7V147.46 C273.82,135.49,264.07,125.8,252.04,125.76z"/><path class="wst5" d="M240.13,125.76H119.07v272.32h121.06c12.04-0.04,21.79-9.73,21.83-21.7V147.46 C261.91,135.49,252.17,125.8,240.13,125.76z"/><linearGradient id="wSVGID_1_" gradientUnits="userSpaceOnUse" x1="45.8183" y1="-1083.4916" x2="216.1361" y2="-788.5082" gradientTransform="matrix(1 0 0 1 0 1192)"><stop offset="0" style="stop-color:#2368C4"/><stop offset="0.5" style="stop-color:#1A5DBE"/><stop offset="1" style="stop-color:#1146AC"/></linearGradient><path class="wst6" d="M21.83,125.76h218.3c12.05,0,21.83,9.72,21.83,21.7v217.08c0,11.99-9.77,21.7-21.83,21.7H21.83  C9.77,386.24,0,376.52,0,364.54V147.46C0,135.48,9.77,125.76,21.83,125.76z"/><path class="wst7" d="M89.56,292.21c0.43,3.35,0.71,6.26,0.85,8.76h0.5c0.19-2.37,0.59-5.22,1.19-8.56c0.6-3.34,1.15-6.16,1.63-8.47 l22.96-98.49h29.68l23.81,97.01c1.38,6.03,2.37,12.15,2.96,18.3h0.39c0.44-5.97,1.27-11.9,2.48-17.76l18.99-97.6h27.02  l-33.36,141.13H157.1l-22.62-93.47c-0.65-2.69-1.4-6.2-2.23-10.53s-1.33-7.48-1.54-9.47h-0.39c-0.26,2.3-0.77,5.71-1.54,10.23 c-0.76,4.52-1.37,7.87-1.83,10.04l-21.27,93.17h-32.1L40.04,185.46h27.5l20.68,98.69C88.7,286.17,89.14,288.87,89.56,292.21z"/></svg>`;
+
+            const excelSvg = `<svg class="w-7 h-7" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512" xml:space="preserve"><style type="text/css">.est0{fill:#185C37;} .est1{fill:#21A366;} .est2{fill:#107C41;} .est3{opacity:0.1;} .est4{opacity:0.2;} .est5{fill:url(#eSVGID_1_);} .est6{fill:#FFFFFF;} .est7{fill:#33C481;}</style><path class="est0" d="M321.49,244.09l-202.42-35.72v263.94c0,12.05,9.77,21.83,21.83,21.83l0,0h349.28  c12.05,0,21.83-9.77,21.83-21.83l0,0v-97.24L321.49,244.09z"/><path class="est1" d="M321.49,17.86H140.9c-12.05,0-21.83,9.77-21.83,21.83l0,0v97.24L321.49,256l107.16,35.72L512,256V136.93  L321.49,17.86z"/><path class="est2" d="M119.07,136.93h202.42V256H119.07V136.93z"/><path class="est3" d="M263.94,113.12H119.07v297.67h144.87c12.04-0.04,21.79-9.79,21.83-21.83V134.94 C285.73,122.9,275.98,113.16,263.94,113.12z"/><path class="est4" d="M252.04,125.02H119.07V422.7h132.97c12.04-0.04,21.79-9.79,21.83-21.83V146.85 C273.82,134.81,264.07,125.06,252.04,125.02z"/><path class="est4" d="M252.04,125.02H119.07v273.86h132.97c12.04-0.04,21.79-9.79,21.83-21.83V146.85 C273.82,134.81,264.07,125.06,252.04,125.02z"/><path class="est4" d="M240.13,125.02H119.07v273.86h121.06c12.04-0.04,21.79-9.79,21.83-21.83V146.85 C261.91,134.81,252.17,125.06,240.13,125.02z"/><linearGradient id="eSVGID_1_" gradientUnits="userSpaceOnUse" x1="45.5065" y1="-1464.0308" x2="216.4467" y2="-1167.9695" gradientTransform="matrix(1 0 0 1 0 1572)"><stop offset="0" style="stop-color:#18884F"/><stop offset="0.5" style="stop-color:#117E43"/><stop offset="1" style="stop-color:#0B6631"/></linearGradient><path class="est5" d="M21.83,125.02h218.3c12.05,0,21.83,9.77,21.83,21.83v218.3c0,12.05-9.77,21.83-21.83,21.83H21.83 C9.77,386.98,0,377.21,0,365.15v-218.3C0,134.79,9.77,125.02,21.83,125.02z"/><path class="est6" d="M67.6,326.94l45.91-71.14l-42.07-70.75h33.84l22.96,45.25c2.12,4.3,3.57,7.49,4.36,9.6h0.3 c1.51-3.43,3.1-6.76,4.76-9.99l24.54-44.83h31.07l-43.14,70.33l44.23,71.54H161.3l-26.52-49.66c-1.25-2.11-2.31-4.33-3.17-6.63    h-0.39c-0.78,2.25-1.81,4.41-3.07,6.43l-27.3,49.87L67.6,326.94z"/><path class="est7" d="M490.17,17.86H321.49v119.07H512V39.69C512,27.63,502.23,17.86,490.17,17.86z"/><path class="est2" d="M321.49,256H512v119.07H321.49V256z"/></svg>`;
+
+            const pdfSvg = `<svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" aria-label="PDF" role="img" viewBox="0 0 512 512" fill="#000000"><g><rect width="512" height="512" rx="15%" fill="#c80a0a"></rect><path fill="#ffffff" d="M413 302c-9-10-29-15-56-15-16 0-33 2-53 5a252 252 0 0 1-52-69c10-30 17-59 17-81 0-17-6-44-30-44-7 0-13 4-17 10-10 18-6 58 13 100a898 898 0 0 1-50 117c-53 22-88 46-91 65-2 9 4 24 25 24 31 0 65-45 91-91a626 626 0 0 1 92-24c38 33 71 38 87 38 32 0 35-23 24-35zM227 111c8-12 26-8 26 16 0 16-5 42-15 72-18-42-18-75-11-88zM100 391c3-16 33-38 80-57-26 44-52 72-68 72-10 0-13-9-12-15zm197-98a574 574 0 0 0-83 22 453 453 0 0 0 36-84 327 327 0 0 0 47 62zm13 4c32-5 59-4 71-2 29 6 19 41-13 33-23-5-42-18-58-31z"></path></g></svg>`;
+
+            const txtSvg = `<svg class="w-7 h-7" viewBox="-4 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g> <path d="M5.151-.036c-2.803 0-5.074 2.272-5.074 5.074v53.841c0 2.803 2.271 5.074 5.074 5.074h45.774c2.801 0 5.074-2.271 5.074-5.074v-38.605l-18.902-20.31h-31.946z" fill-rule="evenodd" clip-rule="evenodd" fill="#f9ac06"></path> <g fill-rule="evenodd" clip-rule="evenodd"> <path d="M56.008 20.316v1h-12.799s-6.312-1.26-6.129-6.708c0 0 .208 5.708 6.004 5.708h12.924z" fill="#F7BC04"></path> <path d="M37.106-.036v14.561c0 1.656 1.104 5.792 6.104 5.792h12.799l-18.903-20.353z" opacity=".5" fill="#ffffff"></path> </g> <path d="M18.763 43.045h-3.277v10.047c0 .414-.324.738-.756.738-.414 0-.738-.324-.738-.738v-10.047h-3.259c-.36 0-.648-.288-.648-.684 0-.36.288-.648.648-.648h8.03c.36 0 .648.288.648.685 0 .359-.288.647-.648.647zm11.7 10.803c-.216 0-.415-.089-.541-.27l-3.727-4.97-3.745 4.97c-.126.181-.324.27-.54.27-.396 0-.72-.306-.72-.72 0-.144.036-.306.144-.432l3.889-5.131-3.619-4.826c-.09-.126-.144-.27-.144-.414 0-.343.288-.721.72-.721.216 0 .432.108.576.288l3.439 4.627 3.439-4.646c.126-.18.324-.27.541-.27.378 0 .738.306.738.721 0 .144-.036.288-.126.414l-3.619 4.808 3.89 5.149c.09.126.126.27.126.415 0 .396-.325.738-.721.738zm11.195-10.803h-3.277v10.047c0 .414-.323.738-.756.738-.414 0-.738-.324-.738-.738v-10.047h-3.259c-.36 0-.648-.288-.648-.684 0-.36.288-.648.648-.648h8.03c.36 0 .648.288.648.685.001.359-.287.647-.648.647z" fill="#ffffff"></path> </g></svg>`;
+
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { html: '<i class="ph-fill ph-images text-gray-500 text-[28px]"></i>', bg: 'bg-transparent' };
+            if (ext === 'pdf') return { html: pdfSvg, bg: 'bg-transparent' };
+            if (['doc', 'docx'].includes(ext)) return { html: wordSvg, bg: 'bg-transparent' };
+            if (['xls', 'xlsx'].includes(ext)) return { html: excelSvg, bg: 'bg-transparent' };
+            if (ext === 'txt') return { html: txtSvg, bg: 'bg-transparent' };
+            return { html: '<i class="ph-fill ph-file text-gray-500 text-2xl"></i>', bg: 'bg-gray-200' };
+        }
+
+        function renderFilePreview() {
+            filePreviewContainer.innerHTML = '';
+            if (currentAttachedFiles.length === 0) {
+                filePreviewContainer.classList.add('hidden');
+                return;
+            }
+            filePreviewContainer.classList.remove('hidden');
+            currentAttachedFiles.forEach((file, index) => {
+                const iconData = getFileIcon(file.name);
+
+                const div = document.createElement('div');
+                div.className = "relative flex items-center gap-3 bg-gray-100 rounded-xl p-3 min-w-0 group"; // min-w-0 for truncating
+                div.innerHTML = `
+                    <div class="w-10 h-10 ${iconData.bg} rounded flex items-center justify-center shrink-0 shadow-xs">
+                        ${iconData.html}
+                    </div>
+                    <div class="flex-1 min-w-0 flex flex-col justify-center">
+                        <span class="text-[0.85rem] font-medium text-gray-800 truncate block w-full leading-tight" title="${file.name}">${file.name}</span>
+                        <span class="text-[0.7rem] text-gray-500 mt-0.5">${formatBytes(file.size)}</span>
+                    </div>
+                    <button onclick="removeAttachedFile(${index})" class="absolute -top-1.5 -right-1.5 bg-gray-300 text-gray-600 hover:text-red-600 hover:bg-red-200 transition-colors rounded-full w-5 h-5 flex items-center justify-center shadow-sm z-10 opacity-0 group-hover:opacity-100 focus:opacity-100 outline-none">
+                        <i class="ph-bold ph-x text-[9px]"></i>
+                    </button>
+                `;
+                filePreviewContainer.appendChild(div);
+            });
+            btnSend.disabled = false;
+        }
+
+        fileUpload.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const processed = await processFile(files[i]);
+                if (processed) currentAttachedFiles.push(processed);
+            }
+            renderFilePreview();
+            fileUpload.value = '';
+        });
+
+        // Enter to send
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!btnSend.disabled) handleSend();
+            }
+        });
+
+        const handleSend = async () => {
+            const text = promptInput.value.trim();
+            if (!text && currentAttachedFiles.length === 0) return;
+
+            const apiKey = getAPIKey();
+            if (!apiKey) {
+                alert("Silakan masukkan API Key Gemini di Pengaturan terlebih dahulu.");
+                openSettings();
+                return;
+            }
+
+            const parts = [];
+            let fileContextText = "";
+            currentAttachedFiles.forEach(file => {
+                if (file.type === 'inline') {
+                    parts.push({ inlineData: { mimeType: file.mimeType, data: file.data } });
+                } else if (file.type === 'text') {
+                    fileContextText += `\n${file.text}\n`;
+                }
+            });
+
+            const combinedText = fileContextText + text;
+            if (combinedText.trim()) parts.push({ text: combinedText });
+            else parts.push({ text: "Tolong perhatikan file/gambar ini." });
+
+            // UI Updates
+            promptInput.value = '';
+            btnSend.disabled = true;
+
+            if (text) renderMessage('user', text);
+            await saveMessage('user', text, null);
+
+            currentAttachedFiles = [];
+            renderFilePreview();
+
+            // Show typing indicator
+            chatContainer.appendChild(typingIndicator);
+            typingIndicator.style.display = 'flex';
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            try {
+                // Formatting history for Gemini Format
+                const formattedHistory = chatHistory.map(msg => ({
+                    role: msg.role === 'ai' ? 'model' : 'user',
+                    parts: msg.parts ? msg.parts : [{ text: msg.text || "Mengirim lampiran." }]
+                }));
+
+                formattedHistory.push({ role: 'user', parts: parts });
+
+                const payload = {
+                    contents: formattedHistory
+                };
+
+                const sysPrompt = getSystemPrompt();
+                if (sysPrompt) {
+                    payload.system_instruction = { parts: { text: sysPrompt } };
+                }
+
+                const selectedModel = getAIModel();
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error?.message || 'Gagal menghubungi API server');
+                }
+
+                const data = await response.json();
+                const aiText = data.candidates[0].content.parts[0].text;
+
+                renderMessage('ai', aiText);
+                await saveMessage('ai', aiText);
+                chatHistory.push({ role: 'user', text: text, parts: null });
+                chatHistory.push({ role: 'ai', text: aiText });
+
+            } catch (error) {
+                renderMessage('ai', `**Error:** ${error.message}`);
+                console.error(error);
+            } finally {
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                typingIndicator.classList.add('hidden');
+                promptInput.focus();
+            }
+        };
+
+        btnSend.addEventListener('click', handleSend);
+
+        // --- Settings Logic ---
+        // Setup Custom Dropdown
+        const dropdownButton = document.getElementById('dropdown-button');
+        const dropdownMenu = document.getElementById('dropdown-menu');
+        const dropdownCaret = document.getElementById('dropdown-caret');
+        const dropdownSelectedText = document.getElementById('dropdown-selected-text');
+        const dropdownItems = document.querySelectorAll('.dropdown-item');
+        const customModelDropdown = document.getElementById('custom-model-dropdown');
+
+        const toggleDropdown = () => {
+            const isExpanded = dropdownMenu.classList.contains('opacity-100');
+            if (isExpanded) {
+                dropdownMenu.classList.remove('opacity-100', 'visible', 'translate-y-0');
+                dropdownMenu.classList.add('opacity-0', 'invisible', 'translate-y-[-10px]');
+                dropdownCaret.style.transform = 'rotate(0deg)';
+            } else {
+                dropdownMenu.classList.remove('opacity-0', 'invisible', 'translate-y-[-10px]');
+                dropdownMenu.classList.add('opacity-100', 'visible', 'translate-y-0');
+                dropdownCaret.style.transform = 'rotate(180deg)';
+            }
+        };
+
+        dropdownButton.addEventListener('click', toggleDropdown);
+
+        document.addEventListener('click', (e) => {
+            if (customModelDropdown && !customModelDropdown.contains(e.target)) {
+                dropdownMenu.classList.remove('opacity-100', 'visible', 'translate-y-0');
+                dropdownMenu.classList.add('opacity-0', 'invisible', 'translate-y-[-10px]');
+                dropdownCaret.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        const updateDropdownUI = (val) => {
+            aiModelSelect.value = val;
+            dropdownItems.forEach(item => {
+                const itemVal = item.getAttribute('data-value');
+                const checkIcon = item.querySelector('.check-icon');
+                if (itemVal === val) {
+                    checkIcon.classList.remove('opacity-0');
+                    checkIcon.classList.add('opacity-100');
+                    const itemName = item.getAttribute('data-name');
+                    dropdownSelectedText.innerHTML = itemName;
+                } else {
+                    checkIcon.classList.remove('opacity-100');
+                    checkIcon.classList.add('opacity-0');
+                }
+            });
+        };
+
+        dropdownItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const val = item.getAttribute('data-value');
+                updateDropdownUI(val);
+                toggleDropdown();
+            });
+        });
+
+        const openSettings = () => {
+            apiKeyInput.value = getAPIKey();
+            systemPromptInput.value = getSystemPrompt();
+            updateDropdownUI(getAIModel());
+
+            // Tailwind approach to show modal
+            settingsModal.classList.remove('hidden');
+            settingsModal.style.display = 'flex';
+            // slight delay to allow display flex to apply before opacity transition
+            setTimeout(() => {
+                settingsModal.classList.add('active');
+            }, 10);
+        };
+
+        const closeSettings = () => {
+            settingsModal.classList.remove('active');
+            setTimeout(() => {
+                settingsModal.classList.add('hidden');
+                settingsModal.style.display = 'none';
+            }, 300); // match transition duration
+        };
+
+        btnSettings.addEventListener('click', openSettings);
+        btnCloseSettings.addEventListener('click', closeSettings);
+
+        // Close modal when clicking outside
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettings();
+        });
+
+        btnSaveSettings.addEventListener('click', () => {
+            localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+            localStorage.setItem('gemini_sys_prompt', systemPromptInput.value.trim());
+            localStorage.setItem('gemini_ai_model', aiModelSelect.value);
+            closeSettings();
+        });
+
+        btnClearChat.addEventListener('click', async () => {
+            if (confirm('Yakin ingin menghapus semua riwayat chat?')) {
+                await clearMessages();
+                chatHistory = [];
+                chatContainer.innerHTML = '';
+                renderEmptyState();
+                closeSettings();
+            }
+        });
+
+        // --- Initialization ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initDB();
+                const messages = await loadMessages();
+                chatHistory = messages;
+
+                if (messages.length === 0) {
+                    renderEmptyState();
+                } else {
+                    messages.forEach(msg => {
+                        renderMessage(msg.role, msg.text);
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to load app data:", error);
+            }
+        });
+    </script>
+</body>
+
+</html>
