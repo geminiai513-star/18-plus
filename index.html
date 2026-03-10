@@ -949,7 +949,7 @@
 		document.getElementById('settings-temp').onchange = saveAdminSettings;
 		document.getElementById('settings-thinking').onchange = saveAdminSettings;
 		document.getElementById('settings-history').onchange = saveAdminSettings;
-		document.getElementById('systemPromptInput').onchange = saveAdminSettings;
+		document.getElementById('systemPromptInput').oninput = saveAdminSettings;
 
 		const dropdownTrigger = document.getElementById('dropdown-trigger');
 		const dropdownMenu = document.getElementById('dropdown-menu');
@@ -995,7 +995,17 @@
 		}
 
 
-		document.getElementById('apiKeyInput').onchange = saveAdminSettings;
+		document.getElementById('apiKeyInput').oninput = saveAdminSettings;
+
+		// Solusi Halus iOS Keyboard menutup tapi layout tidak kembali (Scroll fix)
+		document.querySelectorAll('input, textarea').forEach(el => {
+			el.addEventListener('blur', () => {
+				setTimeout(() => {
+					window.scrollTo({ top: 0, behavior: 'smooth' });
+					document.body.scrollTop = 0;
+				}, 100);
+			});
+		});
 
 		// Solusi Halus iOS Overscroll (Mencegah Freeze tanpa memblokir pergerakan)
 		document.addEventListener('touchstart', function (event) {
@@ -1725,6 +1735,7 @@
 		};
 
 		document.getElementById('backFromAdmin').onclick = () => {
+			saveAdminSettings(); // Pastikan tersimpan sebelum keluar
 			document.getElementById('adminScreen').classList.replace('flex', 'hidden');
 		};
 
