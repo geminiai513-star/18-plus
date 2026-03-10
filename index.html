@@ -1336,7 +1336,7 @@
 				}
 
 				const payload = {
-					system_instruction: { parts: [{ text: customSystemPrompt }] },
+					systemInstruction: { parts: [{ text: customSystemPrompt }] },
 					contents: [
 						...limitedChatHistory,
 						{ role: "user", parts: [...apiParts, { text: finalMessage }] }
