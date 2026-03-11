@@ -510,15 +510,10 @@
 					<img src="icon/icon.png" alt="Logo" class="h-8 w-auto object-contain">
 				</div>
 				<div class="flex items-center gap-1">
-					<button id="settingsLogoutBtn"
-						class="p-2.5 text-slate-300 hover:text-red-400 rounded-xl active:scale-95 transition-colors"><i
-							data-lucide="log-out" class="w-5 h-5"></i></button>
-					<button id="resetChatBtn" onclick="openResetModal()"
-						class="p-2.5 text-slate-300 hover:text-red-400 rounded-xl active:scale-95 transition-colors"><i
-							data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
 					<button id="settingsBtn"
-						class="p-2.5 text-slate-300 hover:text-white rounded-xl active:scale-95 transition-colors"><i
-							data-lucide="settings-2" class="w-5 h-5"></i></button>
+						class="p-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-slate-200 hover:bg-white/20 hover:text-white rounded-2xl active:scale-95 transition-all shadow-sm">
+						<i data-lucide="settings-2" class="w-[18px] h-[18px] stroke-[2.5]"></i>
+					</button>
 				</div>
 			</div>
 		</header>
@@ -700,6 +695,19 @@
 					</div>
 					<textarea id="systemPromptInput" rows="4"
 						class="w-full bg-[#1e1e1e] border border-white/10 rounded-xl px-4 py-3 text-[15px] font-medium text-slate-300 outline-none resize-none focus:border-blue-500"></textarea>
+				</div>
+
+				<div class="w-full space-y-3 pt-2">
+					<button id="resetChatBtn" onclick="openResetModal()"
+						class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-red-400 rounded-2xl font-bold text-sm uppercase flex items-center justify-center gap-2 transition-colors">
+						<i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+						Reset Percakapan
+					</button>
+					<button id="settingsLogoutBtn"
+						class="w-full py-4 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-red-500 rounded-2xl font-bold text-sm uppercase flex items-center justify-center gap-2 transition-colors">
+						<i data-lucide="log-out" class="w-5 h-5"></i>
+						Keluar / Logout
+					</button>
 				</div>
 			</div>
 		</main>
@@ -1358,15 +1366,6 @@
 					const thinkingLevelMap = { "1": "LOW", "2": "MEDIUM", "3": "HIGH" };
 					payload.generationConfig.thinkingConfig = {
 						thinkingLevel: thinkingLevelMap[sliderVal] || "HIGH",
-						includeThoughts: false
-					};
-				} else if (currentSelectedModel.includes('2.5')) {
-					let budget = currentBudget;
-					if (currentSelectedModel.includes('flash') && budget > 24576) {
-						budget = 24576;
-					}
-					payload.generationConfig.thinkingConfig = {
-						thinkingBudget: budget,
 						includeThoughts: false
 					};
 				}
