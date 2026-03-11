@@ -247,7 +247,7 @@
 			z-index: 100;
 			padding-top: 16px;
 			padding-bottom: 20px;
-			border-top: 1px solid rgba(255, 255, 255, 0.1);
+			border-top: none;
 			margin-top: -1px;
 		}
 
@@ -507,7 +507,7 @@
 		<header class="h-16 px-4 md:px-8 flex items-center">
 			<div class="w-full flex justify-between items-center">
 				<div class="flex items-center">
-					<img src="icon/icon.png" alt="Logo" class="h-8 w-auto object-contain">
+					<img src="icon/icon.png" alt="Logo" class="h-9 w-auto object-contain">
 				</div>
 				<div class="flex items-center gap-1">
 					<button id="settingsBtn"
@@ -1925,49 +1925,49 @@
 	</script>
 	<!-- PWA Install Modal (Android/Desktop) -->
 	<div id="installAppModal"
-		class="fixed inset-0 bg-black/40 z-[999] hidden items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+		class="fixed inset-0 bg-black/80 z-[999] hidden items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
 		<div id="installAppModalContent"
-			class="bg-white rounded-3xl w-full max-w-[320px] p-6 text-center transform scale-95 transition-transform duration-300 shadow-xl border border-slate-100">
-			<div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-				<img src="icon/icon.png" class="w-10 h-10 object-contain">
+			class="bg-[#121212] rounded-3xl w-full max-w-[320px] p-6 text-center transform scale-95 transition-transform duration-300 shadow-2xl border border-white/10">
+			<div class="flex items-center justify-center mx-auto mb-4">
+				<img src="icon/icon.png" class="w-12 h-12 object-contain invert brightness-0">
 			</div>
-			<p class="text-sm text-slate-500 font-medium mb-6 leading-relaxed">Install aplikasi Asisten di perangkat
+			<p class="text-[13px] text-slate-400 font-medium mb-6 leading-relaxed">Install aplikasi Asisten di perangkat
 				Anda untuk akses lebih cepat dan pengalaman terbaik.</p>
 
 			<div class="flex gap-2">
 				<button onclick="closeInstallModal()"
-					class="flex-1 py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase">Nanti</button>
+					class="flex-1 py-3 bg-white/10 hover:bg-white/20 text-slate-300 rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase">Nanti</button>
 				<button id="installAppBtn"
-					class="flex-1 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase shadow-md">Install</button>
+					class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase shadow-md">Install</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- PWA Install Modal (iOS) -->
 	<div id="iosInstallModal"
-		class="fixed inset-0 bg-black/40 z-[999] hidden items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+		class="fixed inset-0 bg-black/80 z-[999] hidden items-center justify-center p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0">
 		<div id="iosInstallModalContent"
-			class="bg-white rounded-3xl w-full max-w-[320px] p-6 text-center transform scale-95 transition-transform duration-300 shadow-xl border border-slate-100 relative">
+			class="bg-[#121212] rounded-3xl w-full max-w-[320px] p-6 text-center transform scale-95 transition-transform duration-300 shadow-2xl border border-white/10 relative">
 
-			<div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
-				<img src="icon/icon.png" class="w-10 h-10 object-contain">
+			<div class="flex items-center justify-center mx-auto mb-4">
+				<img src="icon/icon.png" class="w-12 h-12 object-contain invert brightness-0">
 			</div>
 
-			<p class="text-sm text-slate-500 font-medium mb-6 leading-relaxed">
-				Tekan ikon
-				<svg class="inline w-5 h-5 mx-1 text-blue-500 translate-y-[-2px]" viewBox="0 0 24 24" fill="none"
+			<p class="text-[13px] text-slate-400 font-medium mb-6 leading-relaxed">
+				<b class="text-slate-200">Tekan ikon</b>
+				<svg class="inline w-5 h-5 mx-1 text-blue-400 translate-y-[-2px]" viewBox="0 0 24 24" fill="none"
 					stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
 					<polyline points="16 6 12 2 8 6" />
 					<line x1="12" y1="2" x2="12" y2="15" />
 				</svg>
-				di Safari, lalu cari <b>"Tambah ke Layar Utama" <i data-lucide="plus-square"
-						class="inline w-[18px] h-[18px] text-slate-600 outline-none translate-y-[-1px]"></i></b> untuk
+				di Safari, lalu cari <b class="text-slate-200 font-bold">Tambah ke Layar Utama <i data-lucide="plus-square"
+						class="inline w-[18px] h-[18px] text-blue-400 outline-none translate-y-[-1px]"></i></b> untuk
 				instalasi.
 			</p>
 
 			<button onclick="closeIosInstallModal()"
-				class="w-full py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase shadow-md">
+				class="w-full py-3 bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 rounded-2xl font-bold text-sm active:scale-95 transition-all uppercase shadow-md">
 				Mengerti
 			</button>
 		</div>
