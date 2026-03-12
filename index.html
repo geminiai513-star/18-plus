@@ -237,6 +237,9 @@
 			position: relative;
 			overscroll-behavior: contain;
 			-webkit-overflow-scrolling: touch;
+			will-change: scroll-position;
+			-webkit-transform: translateZ(0);
+			transform: translateZ(0);
 		}
 
 		footer {
@@ -463,6 +466,40 @@
 			display: none !important;
 		}
 
+		.copy-msg-btn {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			background: none;
+			border: none;
+			cursor: pointer;
+			padding: 2px;
+			color: #64748b;
+			transition: all 0.2s ease;
+			opacity: 0;
+			-webkit-user-select: none;
+			user-select: none;
+			z-index: 10;
+		}
+
+		.group:hover .copy-msg-btn {
+			opacity: 1;
+		}
+
+		.copy-msg-btn:hover {
+			color: #e2e8f0;
+		}
+
+		.copy-msg-btn:active {
+			transform: scale(0.9);
+		}
+
+		.copy-msg-btn.copied {
+			opacity: 1;
+			color: #34d399;
+		}
+
 		.scroller::-webkit-scrollbar {
 			width: 6px;
 			display: block;
@@ -529,7 +566,7 @@
 				<div id="file-preview-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 empty:hidden mb-4"></div>
 				<form id="chatForm" class="w-full">
 					<div id="inputWrapper"
-						class="relative flex items-end gap-1 bg-white/10 backdrop-blur-md rounded-[28px] p-1.5 border border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)] focus-within:shadow-[0_0_20px_rgba(255,255,255,0.25)] focus-within:border-white/40 transition-all duration-300">
+						class="relative flex items-end gap-1 bg-white/10 backdrop-blur-md rounded-[28px] p-1.5 border border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.15),0_0_40px_rgba(100,150,255,0.08)] focus-within:shadow-[0_0_25px_rgba(255,255,255,0.3),0_0_50px_rgba(100,150,255,0.15)] focus-within:border-white/40 transition-all duration-300">
 						<input type="file" id="file-input" multiple
 							accept="image/*,application/pdf,.docx,.xlsx,.xls,.pptx,.txt" class="hidden"
 							onchange="handleFileSelect(event)">
@@ -1548,6 +1585,8 @@
 
 			const label = isUser ? 'ANDA' : `<div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>`;
 
+			const copyBtn = !isUser ? `<div class="flex justify-end -mt-2 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>` : '';
+
 			div.innerHTML = `
 		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
@@ -1556,6 +1595,7 @@
 		            </div>
 		            <div class="prose prose-invert max-w-none overflow-x-auto text-white text-[15px] font-medium leading-relaxed [&>p:last-child]:!mb-0">${marked.parse(text)}</div>
 		            <div class="user-file-cards grid grid-cols-2 md:grid-cols-4 gap-2 empty:hidden mt-2">${fileCardsHTML}</div>
+		            ${copyBtn}
 		        </div>`;
 			area.appendChild(div);
 		}
@@ -1584,6 +1624,7 @@
 		                    </div>
 		                </div>
 		            </div>
+		            <div class="flex justify-end -mt-2 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>
 		        </div>`;
 			area.appendChild(div);
 
@@ -1650,8 +1691,8 @@
 				appendMsg(m.role, content, m.timestamp, fileCards);
 			});
 
-			hljs.highlightAll();
-			hljs.highlightAll();
+			// Delay highlight to avoid blocking the main thread on iOS
+			setTimeout(() => { hljs.highlightAll(); }, 100);
 		}
 
 		// typeWriter tidak diperlukan lagi — streaming langsung menampilkan teks real-time
@@ -1668,7 +1709,87 @@
 			});
 		}
 
-		function setGeneratingState(s) {
+		function copyMessageText(btn) {
+			const bubble = btn.closest('.group');
+			if (!bubble) return;
+			const proseEl = bubble.querySelector('.prose');
+			if (!proseEl) return;
+
+			const plainText = proseEl.innerText || proseEl.textContent || '';
+			if (!plainText.trim()) return;
+
+			// Build clean HTML for Office compatibility
+			let cleanHtml = proseEl.innerHTML;
+
+			// Remove all existing class and style attributes first (start fresh)
+			cleanHtml = cleanHtml.replace(/\s*class="[^"]*"/gi, '');
+			cleanHtml = cleanHtml.replace(/\s*style="[^"]*"/gi, '');
+
+			// Remove <thead> and <tbody> wrappers (keep content) — Office handles flat rows better
+			cleanHtml = cleanHtml.replace(/<thead[^>]*>/gi, '');
+			cleanHtml = cleanHtml.replace(/<\/thead>/gi, '');
+			cleanHtml = cleanHtml.replace(/<tbody[^>]*>/gi, '');
+			cleanHtml = cleanHtml.replace(/<\/tbody>/gi, '');
+
+			// Clean code blocks
+			cleanHtml = cleanHtml.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (match, code) => {
+				const cleanCode = code.replace(/<[^>]+>/g, '');
+				return `<pre style="background:#f4f4f4; border:1px solid #ddd; border-radius:6px; padding:10px; font-family:'Consolas','Courier New',monospace; font-size:10pt; white-space:pre-wrap;">${cleanCode}</pre>`;
+			});
+			cleanHtml = cleanHtml.replace(/<code>([\s\S]*?)<\/code>/gi, '<code style="background:#f0f0f0; padding:1px 4px; border-radius:3px; font-family:\'Consolas\',\'Courier New\',monospace; font-size:10pt;">$1</code>');
+
+			// Apply Office-friendly inline styles
+			cleanHtml = cleanHtml
+				.replace(/<table/gi, '<table style="border-collapse:collapse; width:100%; margin:8px 0;"')
+				.replace(/<tr/gi, '<tr')
+				.replace(/<th/gi, '<th style="border:1px solid #999; padding:6px 10px; background:#e8e8e8; font-weight:bold; text-align:left;"')
+				.replace(/<td/gi, '<td style="border:1px solid #ccc; padding:6px 10px; text-align:left;"')
+				.replace(/<ul/gi, '<ul style="margin:4px 0; padding-left:24px;"')
+				.replace(/<ol/gi, '<ol style="margin:4px 0; padding-left:24px;"')
+				.replace(/<li/gi, '<li style="margin:2px 0;"')
+				.replace(/<strong/gi, '<strong style="font-weight:bold;"')
+				.replace(/<blockquote/gi, '<blockquote style="border-left:3px solid #ccc; padding-left:12px; color:#555; margin:8px 0;"')
+				.replace(/<h1/gi, '<h1 style="font-size:18pt; font-weight:bold; margin:10px 0 6px;"')
+				.replace(/<h2/gi, '<h2 style="font-size:15pt; font-weight:bold; margin:10px 0 6px;"')
+				.replace(/<h3/gi, '<h3 style="font-size:13pt; font-weight:bold; margin:8px 0 4px;"')
+				.replace(/<p/gi, '<p style="margin:4px 0;"');
+
+			const styledHtml = `<div style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #222; line-height: 1.6;">${cleanHtml}</div>`;
+
+			const showCopied = () => {
+				btn.classList.add('copied');
+				btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+				setTimeout(() => {
+					btn.classList.remove('copied');
+					btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+				}, 1500);
+			};
+
+			// Use ClipboardItem API to copy both HTML + plain text
+			if (navigator.clipboard && window.ClipboardItem) {
+				const htmlBlob = new Blob([styledHtml], { type: 'text/html' });
+				const textBlob = new Blob([plainText.trim()], { type: 'text/plain' });
+				navigator.clipboard.write([
+					new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })
+				]).then(showCopied).catch(() => {
+					// Fallback to plain text
+					navigator.clipboard.writeText(plainText.trim()).then(showCopied);
+				});
+			} else {
+				// Fallback for older browsers
+				const listener = (e) => {
+					e.preventDefault();
+					e.clipboardData.setData('text/html', styledHtml);
+					e.clipboardData.setData('text/plain', plainText.trim());
+				};
+				document.addEventListener('copy', listener);
+				document.execCommand('copy');
+				document.removeEventListener('copy', listener);
+				showCopied();
+			}
+		}
+
+	function setGeneratingState(s) {
 			isGenerating = s;
 			const sendBtn = document.getElementById('sendBtn');
 			const userInput = document.getElementById('userInput');
@@ -1769,7 +1890,16 @@
 
 		// =============================================
 		async function init() {
-			lucide.createIcons();
+			// Defer icon rendering to avoid blocking main thread on iOS
+			const deferIcons = () => {
+				if (window.requestIdleCallback) {
+					requestIdleCallback(() => lucide.createIcons());
+				} else {
+					setTimeout(() => lucide.createIcons(), 50);
+				}
+			};
+			deferIcons();
+
 			const cachedUpload = localStorage.getItem('awas_allow_upload');
 			if (cachedUpload !== null) {
 				applyUploadUIState(cachedUpload === 'true');
@@ -1784,7 +1914,7 @@
 				settingsBtn.style.display = 'block';
 
 				loadAdminSettings().then(() => {
-					lucide.createIcons();
+					deferIcons();
 				});
 
 				try {
