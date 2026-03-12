@@ -464,7 +464,9 @@
 		}
 
 		.copy-msg-btn {
-			position: relative;
+			position: absolute;
+			bottom: 8px;
+			right: 12px;
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
@@ -1582,7 +1584,7 @@
 
 			const label = isUser ? 'ANDA' : `<div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>`;
 
-			const copyBtn = !isUser ? `<div class="flex justify-end mt-1 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>` : '';
+			const copyBtn = !isUser ? `<button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>` : '';
 
 			div.innerHTML = `
 		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
@@ -1621,7 +1623,7 @@
 		                    </div>
 		                </div>
 		            </div>
-		            <div class="flex justify-end mt-1 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>
+		            <button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
 		        </div>`;
 			area.appendChild(div);
 
