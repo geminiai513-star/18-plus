@@ -237,8 +237,6 @@
 			position: relative;
 			overscroll-behavior: contain;
 			-webkit-overflow-scrolling: touch;
-			will-change: scroll-position;
-			transform: translateZ(0);
 		}
 
 		footer {
@@ -1587,7 +1585,7 @@
 			const copyBtn = !isUser ? `<div class="flex justify-end mt-1 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>` : '';
 
 			div.innerHTML = `
-		        <div class="w-full bg-[#1a1a2e]/80 border border-white/20 rounded-2xl p-4 shadow-sm group relative">
+		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
 		                <span class="text-xs font-black uppercase tracking-widest ${isUser ? 'text-white' : 'text-blue-400'}">${label}</span>
 		                <span class="text-xs font-medium text-slate-300">${timeStr}</span>
@@ -1606,7 +1604,7 @@
 			const div = document.createElement('div');
 			div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
 			div.innerHTML = `
-		        <div class="w-full bg-[#1a1a2e]/80 border border-white/20 rounded-2xl p-4 shadow-sm group relative">
+		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
 		                <span class="text-xs font-black uppercase tracking-widest">
 		                    <div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>
@@ -1690,6 +1688,7 @@
 				appendMsg(m.role, content, m.timestamp, fileCards);
 			});
 
+			hljs.highlightAll();
 			hljs.highlightAll();
 		}
 
