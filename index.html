@@ -514,10 +514,27 @@
 		.scroller::-webkit-scrollbar-thumb:hover {
 			background: #94a3b8;
 		}
+
+		@keyframes loading-progress {
+			0% { width: 0%; }
+			40% { width: 60%; }
+			100% { width: 100%; }
+		}
+		.animate-loading-bar {
+			animation: loading-progress 1s ease-in-out forwards;
+		}
 	</style>
 </head>
 
 <body class="text-white bg-black">
+	<div id="loadingScreen" class="fixed inset-0 bg-black z-[300] flex flex-col items-center justify-center p-6 transition-opacity duration-300">
+		<img src="icon/icon.png" alt="Logo" class="w-16 h-16 mb-8 object-contain animate-pulse">
+		<div class="w-full max-w-[200px] bg-white/10 rounded-full h-1.5 overflow-hidden">
+			<div class="bg-blue-500 h-full rounded-full w-0 animate-loading-bar"></div>
+		</div>
+		<p class="text-slate-400 text-[11px] font-bold mt-4 tracking-widest uppercase animate-pulse">Memuat...</p>
+	</div>
+
 	<div id="loginScreen" class="fixed inset-0 bg-black z-[100] flex items-center justify-center p-6"
 		style="display: none;">
 		<div
@@ -1926,7 +1943,19 @@
 				document.getElementById('loginScreen').style.display = 'flex';
 				document.getElementById('appInterface').style.display = 'none';
 			}
-			applyNativeKeyboardFix();
+
+			if (typeof applyNativeKeyboardFix === 'function') {
+				applyNativeKeyboardFix();
+			}
+
+			// Hilangkan loading screen
+			const loadingScreen = document.getElementById('loadingScreen');
+			if (loadingScreen) {
+				setTimeout(() => {
+					loadingScreen.classList.add('opacity-0');
+					setTimeout(() => loadingScreen.style.display = 'none', 300);
+				}, 600);
+			}
 		}
 
 		// --- LINK INTERCEPTION LOGIC (iOS Enhanced) ---
