@@ -991,9 +991,8 @@
 							const txAsync = dbAsync.transaction('settings', 'readwrite');
 							txAsync.objectStore('settings').put({ id: 1, ...data, updated_at: new Date() });
 							
-							if (!globalData) {
-								applyLoadedSettings(data);
-							}
+							// Selalu terapkan settings dari cloud untuk memastikan kesamaan status cross-device
+							applyLoadedSettings(data);
 						}
 					};
 
