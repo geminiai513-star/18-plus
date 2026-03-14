@@ -1726,8 +1726,8 @@
 				console.error("Error loading chat from IDB:", e);
 			}
 
-			// JIKA KOSONG: Berarti perangkat belum ada histori IDB, backup mode dari Supabase
-			if (msgs.length === 0) {
+			// BACKGROUND SYNC: Supabase cross-device sync
+			const fetchSupabaseMessages = async (currentLocalMsgs) => {
 				try {
 					const { data, error } = await _supabase
 						.from('chat_messages')
@@ -1736,45 +1736,85 @@
 						.order('created_at', { ascending: true });
 
 					if (!error && data && data.length > 0) {
-						msgs = data.map(m => ({
+						let updated = false;
+						const mappedData = data.map(m => ({
 							session_id: m.session_id,
 							role: m.role,
 							content: m.content,
 							timestamp: new Date(m.created_at).getTime()
 						}));
+
+						// Jika jumlah pesan berbeda (cross-device ada chat baru), masukkan yg belum ada ke IDB
+						if (currentLocalMsgs.length !== data.length) {
+							const db = await getDB();
+							const tx = db.transaction(['chat_messages'], 'readwrite');
+							const store = tx.objectStore('chat_messages');
+							
+							// Hanya simpan jika timestamp / urutannya baru atau bersihkan IDB message ini lalu overwrite
+							const idx = store.index('session_id');
+							const delReq = idx.getAllKeys(id);
+							
+							delReq.onsuccess = () => {
+								delReq.result.forEach(key => store.delete(key));
+								mappedData.forEach(msg => store.add(msg));
+							};
+
+							// Jika isInitialLoad dan chat ini adalah yg terpilih di layar, render ulang biar chat baru muncul
+							if (currentSessionId === id && currentLocalMsgs.length > 0) {
+								setTimeout(() => loadSession(id, false), 100); 
+							}
+						}
 						
-						// Sync ke IDB agar nanti instan
-						const db = await getDB();
-						const tx = db.transaction(['chat_messages'], 'readwrite');
-						const store = tx.objectStore('chat_messages');
-						msgs.forEach(msg => store.put(msg));
+						// Jika IDB kosong sama sekali
+						if (currentLocalMsgs.length === 0) {
+							msgs = mappedData;
+							const db = await getDB();
+							const tx = db.transaction(['chat_messages'], 'readwrite');
+							const store = tx.objectStore('chat_messages');
+							msgs.forEach(msg => store.put(msg));
+							renderMessages(msgs);
+						}
 					}
 				} catch (e) {
 					console.error("Error loading chat from Supabase:", e);
 				}
+			};
+
+			if (msgs.length === 0) {
+				// Tunggu Supabase kalau lokal kosong sama sekali
+				await fetchSupabaseMessages([]);
+			} else {
+				// Sinkronisasi background (ga diblok)
+				fetchSupabaseMessages(msgs);
 			}
 
-			document.getElementById('messagesArea').innerHTML = '';
-			chatHistory = msgs.map(m => {
-				let text = m.content;
-				if (m.content.includes(FILE_CARD_SEPARATOR)) {
-					text = m.content.split(FILE_CARD_SEPARATOR)[0];
-				}
-				return { role: m.role, parts: [{ text: text }] };
-			});
+			function renderMessages(messageList) {
+				document.getElementById('messagesArea').innerHTML = '';
+				chatHistory = messageList.map(m => {
+					let text = m.content;
+					if (m.content.includes(FILE_CARD_SEPARATOR)) {
+						text = m.content.split(FILE_CARD_SEPARATOR)[0];
+					}
+					return { role: m.role, parts: [{ text: text }] };
+				});
 
-			msgs.forEach(m => {
-				let content = m.content;
-				let fileCards = "";
-				if (content.includes(FILE_CARD_SEPARATOR)) {
-					const parts = content.split(FILE_CARD_SEPARATOR);
-					content = parts[0];
-					fileCards = parts[1];
-				}
-				appendMsg(m.role, content, m.timestamp, fileCards);
-			});
+				messageList.forEach(m => {
+					let content = m.content;
+					let fileCards = "";
+					if (content.includes(FILE_CARD_SEPARATOR)) {
+						const parts = content.split(FILE_CARD_SEPARATOR);
+						content = parts[0];
+						fileCards = parts[1];
+					}
+					appendMsg(m.role, content, m.timestamp, fileCards);
+				});
 
-			hljs.highlightAll();
+				hljs.highlightAll();
+			}
+
+			if (msgs.length > 0) {
+				renderMessages(msgs);
+			}
 		}
 
 		// typeWriter tidak diperlukan lagi — streaming langsung menampilkan teks real-time
@@ -2010,54 +2050,49 @@
 					let sessions = [];
 
 					// PRIORITAS 1: IndexedDB secara INSTANT
-					const db = await getDB();
-					const store = db.transaction('chat_sessions', 'readonly').objectStore('chat_sessions');
+					const dbLocal = await getDB();
+					const storeLocal = dbLocal.transaction('chat_sessions', 'readonly').objectStore('chat_sessions');
 					const allSessions = await new Promise(resolve => {
-						const req = store.getAll();
+						const req = storeLocal.getAll();
 						req.onsuccess = () => resolve(req.result || []);
 					});
 					sessions = allSessions.filter(s => s.user_id === session.user.id).sort((a, b) => b.timestamp - a.timestamp);
 
 					if (sessions && sessions.length > 0) {
 						loadSession(sessions[0].id, true);
+					}
+
+					// BACKGROUND PULL SINKRONISASI SUPABASE (Cross Device)
+					const { data: spSessions, error: spError } = await _supabase
+						.from('chat_sessions')
+						.select('*')
+						.eq('user_id', session.user.id)
+						.order('updated_at', { ascending: false });
+
+					if (!spError && spSessions && spSessions.length > 0) {
+						const upSess = spSessions.map(s => ({
+							id: s.id, user_id: s.user_id, title: s.title, timestamp: new Date(s.updated_at).getTime()
+						}));
+
+						const dbAsync = await getDB();
+						const txAsync = dbAsync.transaction(['chat_sessions'], 'readwrite');
+						const storeAsync = txAsync.objectStore('chat_sessions');
 						
-						// BACKGROUND PULL SINKRONISASI SUPABASE KESINI (Fire & Forget)
-						_supabase.from('chat_sessions').select('*').eq('user_id', session.user.id).order('updated_at', { ascending: false }).then(async ({ data: spSessions, error: spError }) => {
-							if (!spError && spSessions && spSessions.length > 0) {
-								const upSess = spSessions.map(s => ({
-									id: s.id, user_id: s.user_id, title: s.title, timestamp: new Date(s.updated_at).getTime()
-								}));
-								const dbAsync = await getDB();
-								const txAsync = dbAsync.transaction(['chat_sessions'], 'readwrite');
-								const storeAsync = txAsync.objectStore('chat_sessions');
-								upSess.forEach(sess => storeAsync.put(sess));
-							}
-						});
-					} else {
-						// Jika di IDB kosong: tunggu load dr Supabase (misal device baru)
-						const { data: spSessions, error: spError } = await _supabase
-							.from('chat_sessions')
-							.select('*')
-							.eq('user_id', session.user.id)
-							.order('updated_at', { ascending: false });
-
-						if (!spError && spSessions && spSessions.length > 0) {
-							sessions = spSessions.map(s => ({
-								id: s.id,
-								user_id: s.user_id,
-								title: s.title,
-								timestamp: new Date(s.updated_at).getTime()
-							}));
-
-							const dbAs = await getDB();
-							const txAs = dbAs.transaction(['chat_sessions'], 'readwrite');
-							const storeAs = txAs.objectStore('chat_sessions');
-							sessions.forEach(sess => storeAs.put(sess));
-							
-							loadSession(sessions[0].id, true);
+						// Simpan semua dari Supabase ke IDB lokal
+						upSess.forEach(sess => storeAsync.put(sess));
+						
+						// Jika di IDB kosong sebelumnya, render langsung dari Supabase
+						if (sessions.length === 0) {
+							loadSession(upSess[0].id, true);
 						} else {
-							currentSessionId = Date.now().toString();
+							// Jika sesi di Supabase BERBEDA dari sesi terbaru di IDB (berarti ada chat dari HP dsb)
+							if (upSess[0].id !== sessions[0].id || upSess.length !== sessions.length) {
+								console.log("Cross-device sync detected newer session.");
+								loadSession(upSess[0].id, true); // Pindah ke session yg lebih baru
+							}
 						}
+					} else if (sessions.length === 0) {
+						currentSessionId = Date.now().toString();
 					}
 				} catch (e) {
 					console.error("Init session error:", e);
