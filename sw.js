@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-projek-v5';
+const CACHE_NAME = 'my-projek-v6';
 const RUNTIME_CACHE = 'my-projek-runtime-cache';
 
 const ASSETS_TO_CACHE = [
@@ -12,18 +12,20 @@ const ASSETS_TO_CACHE = [
     './icon/docx-file-icon.svg',
     './icon/excel-file-icon.svg',
     './icon/ppt-file-icon.svg',
+    './icon/txt-file-icon.svg',
     './icon/image-file-icon.svg',
     './icon/default-file-icon.svg',
     'https://cdn.tailwindcss.com',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono&display=swap',
-    'https://cdn.jsdelivr.net/npm/marked/marked.min.js',
     'https://unpkg.com/lucide@latest',
+    'https://cdn.jsdelivr.net/npm/marked/marked.min.js',
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css',
+    'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js',
+    'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
+    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
     'https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js'
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
 ];
 
 self.addEventListener('install', (event) => {
