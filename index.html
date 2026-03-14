@@ -905,41 +905,24 @@
 				const { data: { session } } = await _supabase.auth.getSession();
 				let globalData = null;
 
-				// Try to get from Supabase first
 				if (session) {
 					localStorage.setItem('awas_settings_kb', 'false');
 					localStorage.setItem('awas_allow_upload', 'true');
 					applyUploadUIState(true);
-
-					const { data, error } = await _supabase
-						.from('user_settings')
-						.select('*')
-						.eq('user_id', session.user.id)
-						.single();
-
-					if (!error && data) {
-						globalData = data;
-						// Mirror to IDB
-						const db = await getDB();
-						const tx = db.transaction('settings', 'readwrite');
-						tx.objectStore('settings').put({ id: 1, ...globalData, updated_at: new Date() });
-					}
 				}
 
-				// Fallback to IDB if Supabase fails or no session
-				if (!globalData) {
-					const db = await getDB();
-					const tx = db.transaction('settings', 'readonly');
-					const store = tx.objectStore('settings');
-					globalData = await new Promise(resolve => {
-						const request = store.get(1);
-						request.onsuccess = (e) => resolve(e.target.result);
-						request.onerror = () => resolve(null);
-					});
-				}
+				// PRIORITAS: Load Settings dari IDB agar instant UI refresh
+				const db = await getDB();
+				const tx = db.transaction('settings', 'readonly');
+				const store = tx.objectStore('settings');
+				globalData = await new Promise(resolve => {
+					const request = store.get(1);
+					request.onsuccess = (e) => resolve(e.target.result);
+					request.onerror = () => resolve(null);
+				});
 
-				if (globalData) {
-					currentSelectedModel = globalData.model || "gemini-3.1-flash-lite-preview";
+				const applyLoadedSettings = (data) => {
+					currentSelectedModel = data.model || "gemini-3.1-flash-lite-preview";
 					localStorage.setItem('awas_model', currentSelectedModel);
 
 					const elModel = document.getElementById('selected-model-text');
@@ -951,42 +934,74 @@
 							"gemini-3.1-flash-lite-preview": "Gemini 3.1 Flash-Lite",
 							"gemini-3.1-pro-preview": "Gemini 3.1 Pro"
 						};
-						elModel.innerText = modelLabels[globalData.model] || globalData.model;
+						elModel.innerText = modelLabels[data.model] || data.model;
 					}
 
 					const elTemp = document.getElementById('settings-temp');
-					if (elTemp && globalData.temperature !== undefined) {
-						elTemp.value = globalData.temperature;
-						document.getElementById('label-temp').innerText = globalData.temperature;
+					if (elTemp && data.temperature !== undefined) {
+						elTemp.value = data.temperature;
+						document.getElementById('label-temp').innerText = data.temperature;
 					}
 
 					const elToken = document.getElementById('settings-tokens');
-					if (elToken && globalData.max_tokens !== undefined) {
-						elToken.value = globalData.max_tokens;
-						document.getElementById('label-tokens').innerText = globalData.max_tokens;
+					if (elToken && data.max_tokens !== undefined) {
+						elToken.value = data.max_tokens;
+						document.getElementById('label-tokens').innerText = data.max_tokens;
 					}
 
 					const elThink = document.getElementById('settings-thinking');
-					if (elThink && globalData.thinking_level !== undefined) {
-						elThink.value = globalData.thinking_level;
-						document.getElementById('label-thinking').innerText = ["LOW", "MEDIUM", "HIGH"][globalData.thinking_level - 1];
+					if (elThink && data.thinking_level !== undefined) {
+						elThink.value = data.thinking_level;
+						document.getElementById('label-thinking').innerText = ["LOW", "MEDIUM", "HIGH"][data.thinking_level - 1];
 					}
 
 					const elHistory = document.getElementById('settings-history');
 					if (elHistory) {
-						let hLimit = globalData.history_limit || 10;
+						let hLimit = data.history_limit || 10;
 						elHistory.value = hLimit;
 						document.getElementById('label-history').innerText = hLimit;
 						localStorage.setItem('awas_history_limit', hLimit);
 					}
 
 					const elPrompt = document.getElementById('systemPromptInput');
-					if (elPrompt && globalData.system_prompt) elPrompt.value = globalData.system_prompt;
+					if (elPrompt && data.system_prompt) elPrompt.value = data.system_prompt;
 
 					const elApiKey = document.getElementById('apiKeyInput');
-					if (elApiKey && globalData.api_key) {
-						elApiKey.value = globalData.api_key;
-						localStorage.setItem('awas_api_key', globalData.api_key);
+					if (elApiKey && data.api_key) {
+						elApiKey.value = data.api_key;
+						localStorage.setItem('awas_api_key', data.api_key);
+					}
+				};
+
+				if (globalData) {
+					applyLoadedSettings(globalData);
+				}
+
+				// BACKUP: Sinkronisasi dari Supabase
+				if (session) {
+					const fetchSupabaseSettings = async () => {
+						const { data, error } = await _supabase
+							.from('user_settings')
+							.select('*')
+							.eq('user_id', session.user.id)
+							.single();
+
+						if (!error && data) {
+							const dbAsync = await getDB();
+							const txAsync = dbAsync.transaction('settings', 'readwrite');
+							txAsync.objectStore('settings').put({ id: 1, ...data, updated_at: new Date() });
+							
+							if (!globalData) {
+								applyLoadedSettings(data);
+							}
+						}
+					};
+
+					if (!globalData) {
+						await fetchSupabaseSettings();
+					} else {
+						// Sync ke bg tidak memblokir render UI
+						fetchSupabaseSettings();
 					}
 				}
 
@@ -1031,6 +1046,7 @@
 		document.getElementById('settings-thinking').onchange = saveAdminSettings;
 		document.getElementById('settings-history').onchange = saveAdminSettings;
 		document.getElementById('systemPromptInput').oninput = saveAdminSettings;
+		document.getElementById('systemPromptInput').onblur = saveAdminSettings;
 
 		const dropdownTrigger = document.getElementById('dropdown-trigger');
 		const dropdownMenu = document.getElementById('dropdown-menu');
@@ -1131,27 +1147,7 @@
 				'xlsx': 'excel-file-icon.svg',
 				'xls': 'excel-file-icon.svg',
 				'pptx': 'ppt-file-icon.svg',
-				'txt': 'txt-file-icon.svg',
-				'js': 'javascript-file-icon.svg',
-				'css': 'css-file-icon.svg',
-				'java': 'java-file-icon.svg',
-				'html': 'html-file-icon.svg',
-				'xml': 'xml-file-icon.svg',
-				'py': 'python-file-icon.svg',
-				'sql': 'sql-file-icon.svg',
-				'ts': 'typescript-file-icon.svg',
-				'lua': 'lua-file-icon.svg',
-				'cpp': 'cpp-file-icon.svg',
-				'h': 'cpp-file-icon.svg',
-				'hpp': 'cpp-file-icon.svg',
-				'swift': 'swift-file-icon.svg',
-				'jpg': 'image-file-icon.svg',
-				'jpeg': 'image-file-icon.svg',
-				'png': 'image-file-icon.svg',
-				'gif': 'image-file-icon.svg',
-				'webp': 'image-file-icon.svg',
-				'heic': 'image-file-icon.svg',
-				'heif': 'image-file-icon.svg'
+				'txt': 'txt-file-icon.svg'
 			};
 			const iconFile = icons[extension] || 'default-file-icon.svg';
 			return `<img src="icon/${iconFile}" class="w-7 h-7 object-contain">`;
@@ -1714,42 +1710,48 @@
 		async function loadSession(id, isInitialLoad = false) {
 			currentSessionId = id;
 			let msgs = [];
+
+			// PRIORITAS 1: Load dari IDB untuk INSTANT render
 			try {
-				// Try fetching from Supabase first
-				const { data, error } = await _supabase
-					.from('chat_messages')
-					.select('*')
-					.eq('session_id', id)
-					.order('created_at', { ascending: true });
+				const db = await getDB();
+				const store = db.transaction('chat_messages', 'readonly').objectStore('chat_messages');
+				const idx = store.index('session_id');
 
-				if (!error && data && data.length > 0) {
-					// Map supabase representation back to local representation
-					msgs = data.map(m => ({
-						session_id: m.session_id,
-						role: m.role,
-						content: m.content,
-						timestamp: new Date(m.created_at).getTime()
-					}));
-					
-					// Optional: Sync back to IDB
-					const db = await getDB();
-					const tx = db.transaction(['chat_messages'], 'readwrite');
-					const store = tx.objectStore('chat_messages');
-					msgs.forEach(msg => store.put(msg));
-				} else {
-					// Fallback to IDB
-					const db = await getDB();
-					const store = db.transaction('chat_messages', 'readonly').objectStore('chat_messages');
-					const idx = store.index('session_id');
-
-					const req = idx.getAll(id);
-					msgs = await new Promise(resolve => {
-						req.onsuccess = () => resolve(req.result || []);
-					});
-					msgs.sort((a, b) => a.timestamp - b.timestamp);
-				}
+				const req = idx.getAll(id);
+				msgs = await new Promise(resolve => {
+					req.onsuccess = () => resolve(req.result || []);
+				});
+				msgs.sort((a, b) => a.timestamp - b.timestamp);
 			} catch (e) {
-				console.error("Error loading chat:", e);
+				console.error("Error loading chat from IDB:", e);
+			}
+
+			// JIKA KOSONG: Berarti perangkat belum ada histori IDB, backup mode dari Supabase
+			if (msgs.length === 0) {
+				try {
+					const { data, error } = await _supabase
+						.from('chat_messages')
+						.select('*')
+						.eq('session_id', id)
+						.order('created_at', { ascending: true });
+
+					if (!error && data && data.length > 0) {
+						msgs = data.map(m => ({
+							session_id: m.session_id,
+							role: m.role,
+							content: m.content,
+							timestamp: new Date(m.created_at).getTime()
+						}));
+						
+						// Sync ke IDB agar nanti instan
+						const db = await getDB();
+						const tx = db.transaction(['chat_messages'], 'readwrite');
+						const store = tx.objectStore('chat_messages');
+						msgs.forEach(msg => store.put(msg));
+					}
+				} catch (e) {
+					console.error("Error loading chat from Supabase:", e);
+				}
 			}
 
 			document.getElementById('messagesArea').innerHTML = '';
@@ -1939,6 +1941,8 @@
 				chatHistory = [];
 
 				closeResetModal();
+				// Kembali ke halaman utama (tutup halaman pengaturan)
+				document.getElementById('adminScreen').classList.replace('flex', 'hidden');
 			} catch (e) {
 				showToast("Gagal mereset: " + e.message, "error");
 			}
@@ -2003,43 +2007,57 @@
 				});
 
 				try {
-					// Coba sinkronisasi chat list dari Supabase terlebih dahulu
-					const { data: spSessions, error: spError } = await _supabase
-						.from('chat_sessions')
-						.select('*')
-						.eq('user_id', session.user.id)
-						.order('updated_at', { ascending: false });
-
 					let sessions = [];
 
-					if (!spError && spSessions && spSessions.length > 0) {
-						sessions = spSessions.map(s => ({
-							id: s.id,
-							user_id: s.user_id,
-							title: s.title,
-							timestamp: new Date(s.updated_at).getTime()
-						}));
-
-						// Sinkronisasikan secara sepihak ke IndexedDB agar mode offline tetap up-to-date
-						const db = await getDB();
-						const tx = db.transaction(['chat_sessions'], 'readwrite');
-						const store = tx.objectStore('chat_sessions');
-						sessions.forEach(sess => store.put(sess));
-					} else {
-						// Fallback: Ambil dari IndexedDB
-						const db = await getDB();
-						const store = db.transaction('chat_sessions', 'readonly').objectStore('chat_sessions');
-						const allSessions = await new Promise(resolve => {
-							const req = store.getAll();
-							req.onsuccess = () => resolve(req.result || []);
-						});
-						sessions = allSessions.filter(s => s.user_id === session.user.id).sort((a, b) => b.timestamp - a.timestamp);
-					}
+					// PRIORITAS 1: IndexedDB secara INSTANT
+					const db = await getDB();
+					const store = db.transaction('chat_sessions', 'readonly').objectStore('chat_sessions');
+					const allSessions = await new Promise(resolve => {
+						const req = store.getAll();
+						req.onsuccess = () => resolve(req.result || []);
+					});
+					sessions = allSessions.filter(s => s.user_id === session.user.id).sort((a, b) => b.timestamp - a.timestamp);
 
 					if (sessions && sessions.length > 0) {
 						loadSession(sessions[0].id, true);
+						
+						// BACKGROUND PULL SINKRONISASI SUPABASE KESINI (Fire & Forget)
+						_supabase.from('chat_sessions').select('*').eq('user_id', session.user.id).order('updated_at', { ascending: false }).then(async ({ data: spSessions, error: spError }) => {
+							if (!spError && spSessions && spSessions.length > 0) {
+								const upSess = spSessions.map(s => ({
+									id: s.id, user_id: s.user_id, title: s.title, timestamp: new Date(s.updated_at).getTime()
+								}));
+								const dbAsync = await getDB();
+								const txAsync = dbAsync.transaction(['chat_sessions'], 'readwrite');
+								const storeAsync = txAsync.objectStore('chat_sessions');
+								upSess.forEach(sess => storeAsync.put(sess));
+							}
+						});
 					} else {
-						currentSessionId = Date.now().toString();
+						// Jika di IDB kosong: tunggu load dr Supabase (misal device baru)
+						const { data: spSessions, error: spError } = await _supabase
+							.from('chat_sessions')
+							.select('*')
+							.eq('user_id', session.user.id)
+							.order('updated_at', { ascending: false });
+
+						if (!spError && spSessions && spSessions.length > 0) {
+							sessions = spSessions.map(s => ({
+								id: s.id,
+								user_id: s.user_id,
+								title: s.title,
+								timestamp: new Date(s.updated_at).getTime()
+							}));
+
+							const dbAs = await getDB();
+							const txAs = dbAs.transaction(['chat_sessions'], 'readwrite');
+							const storeAs = txAs.objectStore('chat_sessions');
+							sessions.forEach(sess => storeAs.put(sess));
+							
+							loadSession(sessions[0].id, true);
+						} else {
+							currentSessionId = Date.now().toString();
+						}
 					}
 				} catch (e) {
 					console.error("Init session error:", e);
