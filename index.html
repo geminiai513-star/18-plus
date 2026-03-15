@@ -1996,9 +1996,19 @@
 			document.getElementById('adminScreen').classList.replace('flex', 'hidden');
 		};
 
-		document.getElementById('settingsLogoutBtn').onclick = () => {
+		document.getElementById('settingsLogoutBtn').onclick = async () => {
 			localStorage.removeItem('awas_settings_kb');
 			localStorage.removeItem('awas_allow_upload');
+			localStorage.removeItem('awas_last_user_id');
+			try {
+				const db = await getDB();
+				const tx = db.transaction(['chat_sessions', 'chat_messages', 'settings'], 'readwrite');
+				tx.objectStore('chat_sessions').clear();
+				tx.objectStore('chat_messages').clear();
+				tx.objectStore('settings').clear();
+			} catch (e) {
+				console.error("Kesalahan membersihkan IDB saat logout:", e);
+			}
 			_supabase.auth.signOut().then(() => location.reload());
 		};
 
@@ -2036,6 +2046,20 @@
 			const { data: { session } } = await _supabase.auth.getSession();
 
 			if (session) {
+				const lastUserId = localStorage.getItem('awas_last_user_id');
+				if (lastUserId && lastUserId !== session.user.id) {
+					try {
+						const dbLoc = await getDB();
+						const txClear = dbLoc.transaction(['chat_sessions', 'chat_messages', 'settings'], 'readwrite');
+						txClear.objectStore('chat_sessions').clear();
+						txClear.objectStore('chat_messages').clear();
+						txClear.objectStore('settings').clear();
+					} catch(e) {
+						console.error("Kesalahan membersihkan IDB untuk akun baru", e);
+					}
+				}
+				localStorage.setItem('awas_last_user_id', session.user.id);
+
 				document.getElementById('loginScreen').style.display = 'none';
 				document.getElementById('appInterface').style.display = 'flex';
 				const settingsBtn = document.getElementById('settingsBtn');
