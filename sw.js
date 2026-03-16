@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-projek-v12';
+const CACHE_NAME = 'my-projek-v13';
 const RUNTIME_CACHE = 'my-projek-runtime-cache';
 
 const ASSETS_TO_CACHE = [
@@ -65,13 +65,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // 1. STRATEGI NETWORK-FIRST UNTUK API SUPABASE (TERMASUK AUTH)
-    if (url.href.includes('supabase.co')) {
+    // 1. STRATEGI NETWORK-FIRST UNTUK API SUPABASE (CHAT HISTORY)
+    if (url.href.includes('supabase.co/rest/v1/') && event.request.method === 'GET') {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
-                    // Hanya cache response yang sukses
-                    if (response && response.status === 200 && event.request.method === 'GET') {
+                    if (response && response.status === 200) {
                         const responseClone = response.clone();
                         caches.open(RUNTIME_CACHE).then((cache) => {
                             cache.put(event.request, responseClone);
@@ -82,7 +81,6 @@ self.addEventListener('fetch', (event) => {
                 .catch(() => {
                     return caches.match(event.request).then(cachedResponse => {
                         if (cachedResponse) return cachedResponse;
-                        // Lempar error jika tidak ada cache, sehingga aplikasi bisa menangkapnya sebagai offline
                         throw new Error('No cache available');
                     });
                 })
