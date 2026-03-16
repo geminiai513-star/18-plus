@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-projek-v11';
+const CACHE_NAME = 'my-projek-v12';
 const RUNTIME_CACHE = 'my-projek-runtime-cache';
 
 const ASSETS_TO_CACHE = [
@@ -35,7 +35,6 @@ self.addEventListener('install', (event) => {
             return Promise.allSettled(
                 ASSETS_TO_CACHE.map((url) => {
                     return fetch(url).then((res) => {
-                        // Memastikan respon oke atau opaque (untuk cross origin)
                         if (res.ok || res.type === 'opaque') {
                             return cache.put(url, res);
                         }
@@ -66,12 +65,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // 1. STRATEGI NETWORK-FIRST UNTUK API SUPABASE (CHAT HISTORY)
-    if (url.href.includes('supabase.co/rest/v1/') && event.request.method === 'GET') {
+    // 1. STRATEGI NETWORK-FIRST UNTUK API SUPABASE (TERMASUK AUTH)
+    if (url.href.includes('supabase.co')) {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
-                    if (response && response.status === 200) {
+                    // Hanya cache response yang sukses
+                    if (response && response.status === 200 && event.request.method === 'GET') {
                         const responseClone = response.clone();
                         caches.open(RUNTIME_CACHE).then((cache) => {
                             cache.put(event.request, responseClone);
@@ -82,6 +82,7 @@ self.addEventListener('fetch', (event) => {
                 .catch(() => {
                     return caches.match(event.request).then(cachedResponse => {
                         if (cachedResponse) return cachedResponse;
+                        // Lempar error jika tidak ada cache, sehingga aplikasi bisa menangkapnya sebagai offline
                         throw new Error('No cache available');
                     });
                 })
@@ -108,17 +109,17 @@ self.addEventListener('fetch', (event) => {
                 // Abaikan error fetch jika sedang offline
             });
 
-            // Kembalikan cache jika ada, sambil secara diam-diam (jika online) mengupdate cache
-            // Jika tidak ada di cache, tunggu hasil fetch
             return cachedResponse || fetchPromise.then(res => {
                 if (!res && event.request.mode === 'navigate') {
                     return caches.match('./index.html', { ignoreSearch: true });
                 }
                 return res;
             }).catch(() => {
+                // Saat benar-benar offline dan fetchPromise gagal
                 if (event.request.mode === 'navigate') {
                     return caches.match('./index.html', { ignoreSearch: true });
                 }
+                return caches.match(event.request, { ignoreSearch: true });
             });
         })
     );
