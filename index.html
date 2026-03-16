@@ -8,13 +8,15 @@
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-	<meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
-	<meta name="theme-color" content="#000001" media="(prefers-color-scheme: dark)">
-	<meta name="color-scheme" id="colorSchemeMeta" content="dark">
 	<script>
-		// Patch khusus iOS 15: Memaksa mode light untuk menghindari bug background putih saat pertama kali buka PWA
+		// Patch khusus iOS 15: Memaksa mode light dan menghapus preferensi media untuk menghindari bug PWA layer putih
 		if (/iP(hone|od|ad).*OS 15_/i.test(window.navigator.userAgent)) {
-			document.getElementById('colorSchemeMeta').setAttribute('content', 'light');
+			document.write('<meta name="theme-color" content="#000000">');
+			document.write('<meta name="color-scheme" content="light">');
+		} else {
+			document.write('<meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">');
+			document.write('<meta name="theme-color" content="#000001" media="(prefers-color-scheme: dark)">');
+			document.write('<meta name="color-scheme" content="dark">');
 		}
 	</script>
 	<meta name="apple-mobile-web-app-title" content="ASISTEN">
