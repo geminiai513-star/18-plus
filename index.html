@@ -10,7 +10,13 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
 	<meta name="theme-color" content="#000001" media="(prefers-color-scheme: dark)">
-	<meta name="color-scheme" content="dark">
+	<meta name="color-scheme" id="colorSchemeMeta" content="dark">
+	<script>
+		// Patch khusus iOS 15: Memaksa mode light untuk menghindari bug background putih saat pertama kali buka PWA
+		if (/iP(hone|od|ad).*OS 15_/i.test(window.navigator.userAgent)) {
+			document.getElementById('colorSchemeMeta').setAttribute('content', 'light');
+		}
+	</script>
 	<meta name="apple-mobile-web-app-title" content="ASISTEN">
 	<link rel="apple-touch-icon" href="icon/icon-512.png">
 	<link rel="icon" type="image/png" href="icon/icon-512.png">
@@ -805,7 +811,8 @@
 
 		const USER_MGMT_URL = `${SUPABASE_URL}/functions/v1/user-management`;
 		const SELECTED_MODEL = "gemini-3.1-flash-lite-preview";
-		const SYSTEM_PROMPT = `Kamu adalah Ai Asisten yang Ramah, Profesional dan sangat membantu.`;
+		const SYSTEM_PROMPT = `Kamu adalah Alisa Asisten AI yang ramah dan sangat profesional.
+Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawasan apip seperti peraturan dan lainnya dan Membantu Melakukan analisis dokumen dengan teliti dan detail terkait pengawasan apip seperti reviu, audit, pencermatan dan lainnya sesuai dengan pengawasan yang di lakukan apip.`;
 		const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 		const FILE_CARD_SEPARATOR = "|||FILE_CARDS|||";
 
@@ -822,27 +829,6 @@
 
 		let currentSelectedModel = localStorage.getItem('awas_model') || "gemini-3.1-flash-lite-preview";
 		const thinkingMap = { "1": 4000, "2": 16000, "3": 32000 };
-
-		const dbPromise = new Promise((resolve, reject) => {
-			const req = indexedDB.open('ChatAppDB', 1);
-			req.onupgradeneeded = (e) => {
-				const db = e.target.result;
-				if (!db.objectStoreNames.contains('chat_sessions')) {
-					db.createObjectStore('chat_sessions', { keyPath: 'id' });
-				}
-				if (!db.objectStoreNames.contains('chat_messages')) {
-					const msgStore = db.createObjectStore('chat_messages', { keyPath: 'msg_id', autoIncrement: true });
-					msgStore.createIndex('session_id', 'session_id', { unique: false });
-				}
-				if (!db.objectStoreNames.contains('settings')) {
-					db.createObjectStore('settings', { keyPath: 'id' });
-				}
-			};
-			req.onsuccess = () => resolve(req.result);
-			req.onerror = () => reject(req.error);
-		});
-
-		async function getDB() { return await dbPromise; }
 
 		function showToast(message, type = "info") {
 			const existing = document.querySelector('.toast-notification');
@@ -876,9 +862,6 @@
 			};
 
 			try {
-				const db = await getDB();
-				const tx = db.transaction('settings', 'readwrite');
-				tx.objectStore('settings').put({ id: 1, ...settings });
 				localStorage.setItem('awas_api_key', document.getElementById('apiKeyInput').value);
 
 				// Sync to Supabase
@@ -903,23 +886,12 @@
 		async function loadAdminSettings() {
 			try {
 				const { data: { session } } = await _supabase.auth.getSession();
-				let globalData = null;
 
 				if (session) {
 					localStorage.setItem('awas_settings_kb', 'false');
 					localStorage.setItem('awas_allow_upload', 'true');
 					applyUploadUIState(true);
 				}
-
-				// PRIORITAS: Load Settings dari IDB agar instant UI refresh
-				const db = await getDB();
-				const tx = db.transaction('settings', 'readonly');
-				const store = tx.objectStore('settings');
-				globalData = await new Promise(resolve => {
-					const request = store.get(1);
-					request.onsuccess = (e) => resolve(e.target.result);
-					request.onerror = () => resolve(null);
-				});
 
 				const applyLoadedSettings = (data) => {
 					currentSelectedModel = data.model || "gemini-3.1-flash-lite-preview";
@@ -973,11 +945,6 @@
 					}
 				};
 
-				if (globalData) {
-					applyLoadedSettings(globalData);
-				}
-
-				// BACKUP: Sinkronisasi dari Supabase
 				if (session) {
 					const fetchSupabaseSettings = async () => {
 						const { data, error } = await _supabase
@@ -987,21 +954,10 @@
 							.single();
 
 						if (!error && data) {
-							const dbAsync = await getDB();
-							const txAsync = dbAsync.transaction('settings', 'readwrite');
-							txAsync.objectStore('settings').put({ id: 1, ...data, updated_at: new Date() });
-							
-							// Selalu terapkan settings dari cloud untuk memastikan kesamaan status cross-device
 							applyLoadedSettings(data);
 						}
 					};
-
-					if (!globalData) {
-						await fetchSupabaseSettings();
-					} else {
-						// Sync ke bg tidak memblokir render UI
-						fetchSupabaseSettings();
-					}
+					await fetchSupabaseSettings();
 				}
 
 			} catch (e) {
@@ -1673,14 +1629,7 @@
 			const finalUserText = fileCardsHTML ? uText + FILE_CARD_SEPARATOR + fileCardsHTML : uText;
 
 			try {
-				// Save to IndexedDB
-				const db = await getDB();
-				const tx = db.transaction(['chat_sessions', 'chat_messages'], 'readwrite');
-				tx.objectStore('chat_sessions').put(payload);
-				tx.objectStore('chat_messages').add({ session_id: currentSessionId, role: 'user', content: finalUserText, timestamp: Date.now() });
-				tx.objectStore('chat_messages').add({ session_id: currentSessionId, role: 'model', content: aText, timestamp: Date.now() });
-				
-				// Sync to Supabase
+				// Save to Supabase
 				if (payload.title) {
 					await _supabase.from('chat_sessions').upsert({
 						id: payload.id,
@@ -1700,7 +1649,7 @@
 					{ session_id: currentSessionId, role: 'user', content: finalUserText, created_at: new Date().toISOString() },
 					{ session_id: currentSessionId, role: 'model', content: aText, created_at: new Date().toISOString() }
 				]);
-				
+
 			} catch (e) {
 				console.error("Error saving msg:", e);
 			}
@@ -1710,23 +1659,7 @@
 			currentSessionId = id;
 			let msgs = [];
 
-			// PRIORITAS 1: Load dari IDB untuk INSTANT render
-			try {
-				const db = await getDB();
-				const store = db.transaction('chat_messages', 'readonly').objectStore('chat_messages');
-				const idx = store.index('session_id');
-
-				const req = idx.getAll(id);
-				msgs = await new Promise(resolve => {
-					req.onsuccess = () => resolve(req.result || []);
-				});
-				msgs.sort((a, b) => a.timestamp - b.timestamp);
-			} catch (e) {
-				console.error("Error loading chat from IDB:", e);
-			}
-
-			// BACKGROUND SYNC: Supabase cross-device sync
-			const fetchSupabaseMessages = async (currentLocalMsgs) => {
+			const fetchSupabaseMessages = async () => {
 				try {
 					const { data, error } = await _supabase
 						.from('chat_messages')
@@ -1735,57 +1668,20 @@
 						.order('created_at', { ascending: true });
 
 					if (!error && data && data.length > 0) {
-						let updated = false;
-						const mappedData = data.map(m => ({
+						msgs = data.map(m => ({
 							session_id: m.session_id,
 							role: m.role,
 							content: m.content,
 							timestamp: new Date(m.created_at).getTime()
 						}));
-
-						// Jika jumlah pesan berbeda (cross-device ada chat baru), masukkan yg belum ada ke IDB
-						if (currentLocalMsgs.length !== data.length) {
-							const db = await getDB();
-							const tx = db.transaction(['chat_messages'], 'readwrite');
-							const store = tx.objectStore('chat_messages');
-							
-							// Hanya simpan jika timestamp / urutannya baru atau bersihkan IDB message ini lalu overwrite
-							const idx = store.index('session_id');
-							const delReq = idx.getAllKeys(id);
-							
-							delReq.onsuccess = () => {
-								delReq.result.forEach(key => store.delete(key));
-								mappedData.forEach(msg => store.add(msg));
-							};
-
-							// Jika isInitialLoad dan chat ini adalah yg terpilih di layar, render ulang biar chat baru muncul
-							if (currentSessionId === id && currentLocalMsgs.length > 0) {
-								setTimeout(() => loadSession(id, false), 100); 
-							}
-						}
-						
-						// Jika IDB kosong sama sekali
-						if (currentLocalMsgs.length === 0) {
-							msgs = mappedData;
-							const db = await getDB();
-							const tx = db.transaction(['chat_messages'], 'readwrite');
-							const store = tx.objectStore('chat_messages');
-							msgs.forEach(msg => store.put(msg));
-							renderMessages(msgs);
-						}
+						renderMessages(msgs);
 					}
 				} catch (e) {
 					console.error("Error loading chat from Supabase:", e);
 				}
 			};
 
-			if (msgs.length === 0) {
-				// Tunggu Supabase kalau lokal kosong sama sekali
-				await fetchSupabaseMessages([]);
-			} else {
-				// Sinkronisasi background (ga diblok)
-				fetchSupabaseMessages(msgs);
-			}
+			await fetchSupabaseMessages();
 
 			function renderMessages(messageList) {
 				document.getElementById('messagesArea').innerHTML = '';
@@ -1910,7 +1806,7 @@
 			}
 		}
 
-	function setGeneratingState(s) {
+		function setGeneratingState(s) {
 			isGenerating = s;
 			const sendBtn = document.getElementById('sendBtn');
 			const userInput = document.getElementById('userInput');
@@ -1957,12 +1853,6 @@
 		async function confirmReset() {
 			try {
 				const { data: { session } } = await _supabase.auth.getSession();
-				
-				// Clear Local IDB
-				const db = await getDB();
-				const tx = db.transaction(['chat_sessions', 'chat_messages'], 'readwrite');
-				tx.objectStore('chat_sessions').clear();
-				tx.objectStore('chat_messages').clear();
 
 				// Clear Supabase
 				if (session) {
@@ -2000,15 +1890,6 @@
 			localStorage.removeItem('awas_settings_kb');
 			localStorage.removeItem('awas_allow_upload');
 			localStorage.removeItem('awas_last_user_id');
-			try {
-				const db = await getDB();
-				const tx = db.transaction(['chat_sessions', 'chat_messages', 'settings'], 'readwrite');
-				tx.objectStore('chat_sessions').clear();
-				tx.objectStore('chat_messages').clear();
-				tx.objectStore('settings').clear();
-			} catch (e) {
-				console.error("Kesalahan membersihkan IDB saat logout:", e);
-			}
 			_supabase.auth.signOut().then(() => location.reload());
 		};
 
@@ -2047,17 +1928,6 @@
 
 			if (session) {
 				const lastUserId = localStorage.getItem('awas_last_user_id');
-				if (lastUserId && lastUserId !== session.user.id) {
-					try {
-						const dbLoc = await getDB();
-						const txClear = dbLoc.transaction(['chat_sessions', 'chat_messages', 'settings'], 'readwrite');
-						txClear.objectStore('chat_sessions').clear();
-						txClear.objectStore('chat_messages').clear();
-						txClear.objectStore('settings').clear();
-					} catch(e) {
-						console.error("Kesalahan membersihkan IDB untuk akun baru", e);
-					}
-				}
 				localStorage.setItem('awas_last_user_id', session.user.id);
 
 				document.getElementById('loginScreen').style.display = 'none';
@@ -2070,22 +1940,6 @@
 				});
 
 				try {
-					let sessions = [];
-
-					// PRIORITAS 1: IndexedDB secara INSTANT
-					const dbLocal = await getDB();
-					const storeLocal = dbLocal.transaction('chat_sessions', 'readonly').objectStore('chat_sessions');
-					const allSessions = await new Promise(resolve => {
-						const req = storeLocal.getAll();
-						req.onsuccess = () => resolve(req.result || []);
-					});
-					sessions = allSessions.filter(s => s.user_id === session.user.id).sort((a, b) => b.timestamp - a.timestamp);
-
-					if (sessions && sessions.length > 0) {
-						loadSession(sessions[0].id, true);
-					}
-
-					// BACKGROUND PULL SINKRONISASI SUPABASE (Cross Device)
 					const { data: spSessions, error: spError } = await _supabase
 						.from('chat_sessions')
 						.select('*')
@@ -2093,28 +1947,8 @@
 						.order('updated_at', { ascending: false });
 
 					if (!spError && spSessions && spSessions.length > 0) {
-						const upSess = spSessions.map(s => ({
-							id: s.id, user_id: s.user_id, title: s.title, timestamp: new Date(s.updated_at).getTime()
-						}));
-
-						const dbAsync = await getDB();
-						const txAsync = dbAsync.transaction(['chat_sessions'], 'readwrite');
-						const storeAsync = txAsync.objectStore('chat_sessions');
-						
-						// Simpan semua dari Supabase ke IDB lokal
-						upSess.forEach(sess => storeAsync.put(sess));
-						
-						// Jika di IDB kosong sebelumnya, render langsung dari Supabase
-						if (sessions.length === 0) {
-							loadSession(upSess[0].id, true);
-						} else {
-							// Jika sesi di Supabase BERBEDA dari sesi terbaru di IDB (berarti ada chat dari HP dsb)
-							if (upSess[0].id !== sessions[0].id || upSess.length !== sessions.length) {
-								console.log("Cross-device sync detected newer session.");
-								loadSession(upSess[0].id, true); // Pindah ke session yg lebih baru
-							}
-						}
-					} else if (sessions.length === 0) {
+						loadSession(spSessions[0].id, true);
+					} else {
 						currentSessionId = Date.now().toString();
 					}
 				} catch (e) {
@@ -2278,7 +2112,8 @@
 					<polyline points="16 6 12 2 8 6" />
 					<line x1="12" y1="2" x2="12" y2="15" />
 				</svg>
-				di Safari, lalu cari <b class="text-slate-200 font-bold">Tambah ke Layar Utama <i data-lucide="plus-square"
+				di Safari, lalu cari <b class="text-slate-200 font-bold">Tambah ke Layar Utama <i
+						data-lucide="plus-square"
 						class="inline w-[18px] h-[18px] text-blue-400 outline-none translate-y-[-1px]"></i></b> untuk
 				instalasi.
 			</p>
