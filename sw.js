@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-projek-v13';
+const CACHE_NAME = 'my-projek-v14';
 const RUNTIME_CACHE = 'my-projek-runtime-cache';
 
 const ASSETS_TO_CACHE = [
