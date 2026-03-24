@@ -1042,12 +1042,15 @@
 			while (el && el !== document.body) {
 				const style = window.getComputedStyle(el);
 				if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-					if (el.scrollTop <= 0) {
-						el.scrollTop = 2;
-					} else if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
-						el.scrollTop = el.scrollHeight - el.clientHeight - 2;
+					// KUNCI PERBAIKAN: Pastikan elemen BENAR-BENAR bisa di-scroll
+					if (el.scrollHeight > el.clientHeight) {
+						if (el.scrollTop <= 0) {
+							el.scrollTop = 2;
+						} else if (Math.ceil(el.scrollTop + el.clientHeight) >= el.scrollHeight) {
+							el.scrollTop = el.scrollHeight - el.clientHeight - 2;
+						}
 					}
-					return;
+					return; 
 				}
 				el = el.parentElement;
 			}
