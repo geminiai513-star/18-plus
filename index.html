@@ -305,7 +305,7 @@
 		}
 
 		.prose table {
-			border-collapse: collapse;
+			border-collapse: separate;
 			border-spacing: 0;
 			margin: 1rem 0;
 			font-size: 0.875rem;
@@ -314,11 +314,14 @@
 			width: max-content;
 			overflow-x: auto;
 			-webkit-overflow-scrolling: touch;
+			border-top: 1px solid rgba(255, 255, 255, 0.2);
+			border-left: 1px solid rgba(255, 255, 255, 0.2);
 		}
 		
 		.prose th,
 		.prose td {
-			border: 1px solid #334155;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+			border-right: 1px solid rgba(255, 255, 255, 0.2);
 			padding: 0.75rem 1rem;
 			text-align: left;
 			vertical-align: top;
@@ -1034,19 +1037,17 @@
 			});
 		});
 
-		// Solusi Halus iOS Overscroll (Mencegah Freeze tanpa memblokir pergerakan)
 		document.addEventListener('touchstart', function (event) {
 			let el = event.target;
-			// Cari parent yang punya overflow-y diset 'auto' atau 'scroll'
 			while (el && el !== document.body) {
 				const style = window.getComputedStyle(el);
 				if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-					if (el.scrollTop === 0) {
-						el.scrollTop = 1;
+					if (el.scrollTop <= 0) {
+						el.scrollTop = 2;
 					} else if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
-						el.scrollTop = el.scrollHeight - el.clientHeight - 1;
+						el.scrollTop = el.scrollHeight - el.clientHeight - 2;
 					}
-					return; // Berhenti mencari jika sudah ketemu scroll container pertama
+					return;
 				}
 				el = el.parentElement;
 			}
@@ -1058,8 +1059,6 @@
 				metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
 			}
 		}, true);
-
-
 
 		function formatBytes(bytes, decimals = 2) {
 			if (bytes === 0) return '0 Bytes';
