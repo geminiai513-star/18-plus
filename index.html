@@ -305,23 +305,22 @@
 		}
 
 		.prose table {
-			width: 100%;
 			border-collapse: collapse;
 			border-spacing: 0;
 			margin: 1rem 0;
 			font-size: 0.875rem;
 			display: block;
+			max-width: 100%;
+			width: max-content;
 			overflow-x: auto;
 			-webkit-overflow-scrolling: touch;
 		}
-
+		
 		.prose th,
 		.prose td {
-			border: 1px solid rgba(255, 255, 255, 0.15);
+			border: 1px solid #334155;
 			padding: 0.75rem 1rem;
 			text-align: left;
-			white-space: normal;
-			word-wrap: break-word;
 			vertical-align: top;
 		}
 
@@ -602,34 +601,27 @@
 	</div>
 
 	<script>
-	    (function () {
-	        const container = document.getElementById('chatContainer');
-	        const btn = document.getElementById('scrollToBottomBtn');
-	
-	        if (container && btn) {
-	            let isScrolling = false;
-	
-	            container.addEventListener('scroll', () => {
-	                if (!isScrolling) {
-	                    window.requestAnimationFrame(() => {
-	                        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-	
-	                        if (!isAtBottom) {
-	                            btn.classList.remove('opacity-0', 'pointer-events-none');
-	                            btn.classList.add('opacity-100', 'pointer-events-auto');
-	                        } else {
-	                            btn.classList.add('opacity-0', 'pointer-events-none');
-	                            btn.classList.remove('opacity-100', 'pointer-events-auto');
-	                        }
-	                        isScrolling = false;
-	                    });
-	                    isScrolling = true;
-	                }
-	            }, { passive: true });
-	        }
-	    })();
-	</script>
+		// Independent scroll logic to ensure no waiting for other scripts
+		(function () {
+			const container = document.getElementById('chatContainer');
+			const btn = document.getElementById('scrollToBottomBtn');
 
+			if (container && btn) {
+				container.addEventListener('scroll', () => {
+					// Show button if user is not at the very bottom (with 100px threshold)
+					const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+
+					if (!isAtBottom) {
+						btn.classList.remove('opacity-0', 'pointer-events-none');
+						btn.classList.add('opacity-100', 'pointer-events-auto');
+					} else {
+						btn.classList.add('opacity-0', 'pointer-events-none');
+						btn.classList.remove('opacity-100', 'pointer-events-auto');
+					}
+				}, { passive: true });
+			}
+		})();
+	</script>
 
 	<div id="adminScreen" class="fixed inset-0 bg-[#0a0a0a] z-[200] hidden flex-col">
 		<header class="h-16 px-4 md:px-8 flex items-center border-b border-white/10 shrink-0 relative">
@@ -812,8 +804,7 @@
 
 		const USER_MGMT_URL = `${SUPABASE_URL}/functions/v1/user-management`;
 		const SELECTED_MODEL = "gemini-3.1-flash-lite-preview";
-		const SYSTEM_PROMPT = `Kamu adalah Alisa Asisten AI yang ramah dan sangat profesional.
-Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawasan apip seperti peraturan dan lainnya dan Membantu Melakukan analisis dokumen dengan teliti dan detail terkait pengawasan apip seperti reviu, audit, pencermatan dan lainnya sesuai dengan pengawasan yang di lakukan apip.`;
+		const SYSTEM_PROMPT = `Kamu adalah seorang APIP yang Profesional, tugas utama kamu adalah membantu memberikan informasi terbaru dan akurat tetantang pengawasan serta membantu melakukan analiis dokumen seperti melakukan reviu, audit, pencermatan dan lainya sesuai dengan pekerjaan APIP.`;
 		const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 		const FILE_CARD_SEPARATOR = "|||FILE_CARDS|||";
 
@@ -823,10 +814,8 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 		let typingBubble = null;
 		let pendingFiles = [];
 		let abortController = null;
-		let typingInterval = null;
 		let currentLoadingMsgId = null;
 		let currentStreamedText = "";
-		let typeWriterResolve = null;
 
 		let currentSelectedModel = localStorage.getItem('awas_model') || "gemini-3.1-flash-lite-preview";
 		const thinkingMap = { "1": 4000, "2": 16000, "3": 32000 };
@@ -858,14 +847,12 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				thinking_level: parseInt(document.getElementById('settings-thinking').value) || 2,
 				history_limit: parseInt(document.getElementById('settings-history').value) || 10,
 				system_prompt: document.getElementById('systemPromptInput').value,
-				api_key: document.getElementById('apiKeyInput').value,
-				updated_at: new Date()
+				api_key: document.getElementById('apiKeyInput').value
 			};
-
+		
 			try {
 				localStorage.setItem('awas_api_key', document.getElementById('apiKeyInput').value);
-
-				// Sync to Supabase
+				
 				const { data: { session } } = await _supabase.auth.getSession();
 				if (session) {
 					await _supabase.from('user_settings').upsert({
@@ -883,21 +870,26 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				console.error(e);
 			}
 		}
-
+		
 		async function loadAdminSettings() {
 			try {
 				const { data: { session } } = await _supabase.auth.getSession();
-
-				if (session) {
-					localStorage.setItem('awas_settings_kb', 'false');
-					localStorage.setItem('awas_allow_upload', 'true');
-					applyUploadUIState(true);
-				}
-
-				const applyLoadedSettings = (data) => {
+				if (!session) return;
+		
+				localStorage.setItem('awas_settings_kb', 'false');
+				localStorage.setItem('awas_allow_upload', 'true');
+				applyUploadUIState(true);
+		
+				const { data, error } = await _supabase
+					.from('user_settings')
+					.select('*')
+					.eq('user_id', session.user.id)
+					.single();
+		
+				if (!error && data) {
 					currentSelectedModel = data.model || "gemini-3.1-flash-lite-preview";
 					localStorage.setItem('awas_model', currentSelectedModel);
-
+		
 					const elModel = document.getElementById('selected-model-text');
 					if (elModel) {
 						const modelLabels = {
@@ -909,25 +901,25 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 						};
 						elModel.innerText = modelLabels[data.model] || data.model;
 					}
-
+		
 					const elTemp = document.getElementById('settings-temp');
 					if (elTemp && data.temperature !== undefined) {
 						elTemp.value = data.temperature;
 						document.getElementById('label-temp').innerText = data.temperature;
 					}
-
+		
 					const elToken = document.getElementById('settings-tokens');
 					if (elToken && data.max_tokens !== undefined) {
 						elToken.value = data.max_tokens;
 						document.getElementById('label-tokens').innerText = data.max_tokens;
 					}
-
+		
 					const elThink = document.getElementById('settings-thinking');
 					if (elThink && data.thinking_level !== undefined) {
 						elThink.value = data.thinking_level;
 						document.getElementById('label-thinking').innerText = ["LOW", "MEDIUM", "HIGH"][data.thinking_level - 1];
 					}
-
+		
 					const elHistory = document.getElementById('settings-history');
 					if (elHistory) {
 						let hLimit = data.history_limit || 10;
@@ -935,32 +927,16 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 						document.getElementById('label-history').innerText = hLimit;
 						localStorage.setItem('awas_history_limit', hLimit);
 					}
-
+		
 					const elPrompt = document.getElementById('systemPromptInput');
 					if (elPrompt && data.system_prompt) elPrompt.value = data.system_prompt;
-
+		
 					const elApiKey = document.getElementById('apiKeyInput');
 					if (elApiKey && data.api_key) {
 						elApiKey.value = data.api_key;
 						localStorage.setItem('awas_api_key', data.api_key);
 					}
-				};
-
-				if (session) {
-					const fetchSupabaseSettings = async () => {
-						const { data, error } = await _supabase
-							.from('user_settings')
-							.select('*')
-							.eq('user_id', session.user.id)
-							.single();
-
-						if (!error && data) {
-							applyLoadedSettings(data);
-						}
-					};
-					await fetchSupabaseSettings();
 				}
-
 			} catch (e) {
 				console.error("Error loading settings:", e);
 			}
@@ -978,8 +954,6 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				inputWrapper.style.paddingLeft = '16px';
 			}
 		}
-
-
 
 		document.getElementById('settings-tokens').oninput = function () {
 			document.getElementById('label-tokens').innerText = this.value;
@@ -1062,21 +1036,21 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 
 		// Solusi Halus iOS Overscroll (Mencegah Freeze tanpa memblokir pergerakan)
 		document.addEventListener('touchstart', function (event) {
-		    let el = event.target;
-		    
-		    while (el && el !== document.body) {
-		        if (el.id === 'chatContainer' || el.classList.contains('custom-scroll')) {
-		            if (el.scrollTop === 0) {
-		                el.scrollTop = 1;
-		            } else if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
-		                el.scrollTop = el.scrollHeight - el.clientHeight - 1;
-		            }
-		            return;
-		        }
-		        el = el.parentElement;
-		    }
+			let el = event.target;
+			// Cari parent yang punya overflow-y diset 'auto' atau 'scroll'
+			while (el && el !== document.body) {
+				const style = window.getComputedStyle(el);
+				if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+					if (el.scrollTop === 0) {
+						el.scrollTop = 1;
+					} else if (el.scrollTop + el.clientHeight >= el.scrollHeight) {
+						el.scrollTop = el.scrollHeight - el.clientHeight - 1;
+					}
+					return; // Berhenti mencari jika sudah ketemu scroll container pertama
+				}
+				el = el.parentElement;
+			}
 		}, { passive: true });
-
 
 		const metaViewport = document.querySelector('meta[name=viewport]');
 		document.addEventListener('focus', function (event) {
@@ -1243,16 +1217,16 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				abortController.abort();
 				abortController = null;
 			}
-
-			if (typingInterval) {
-				clearInterval(typingInterval);
-				typingInterval = null;
+		
+			if (window.currentTypeWriterInterval) {
+				clearInterval(window.currentTypeWriterInterval);
+				window.currentTypeWriterInterval = null;
 			}
-
+		
 			setGeneratingState(false);
-
+		
 			const stopLabel = " <span class='text-red-500 italic'>Respon dihentikan.</span>";
-
+		
 			if (currentLoadingMsgId) {
 				const el = document.getElementById(currentLoadingMsgId);
 				if (el) {
@@ -1265,12 +1239,7 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 					}
 				}
 			}
-
-			if (typeWriterResolve) {
-				typeWriterResolve(currentStreamedText);
-				typeWriterResolve = null;
-			}
-
+		
 			currentLoadingMsgId = null;
 		}
 
@@ -1367,7 +1336,10 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				}
 
 				const payload = {
-					systemInstruction: { parts: [{ text: customSystemPrompt }] },
+					system_instruction: { 
+						role: "system",
+						parts: [{ text: customSystemPrompt }] 
+					},
 					contents: [
 						...limitedChatHistory,
 						{ role: "user", parts: [...apiParts, { text: finalMessage }] }
@@ -1428,18 +1400,22 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				window.currentTypeWriterInterval = setInterval(() => {
 					if (displayedText.length < fullText.length) {
 						const diff = fullText.length - displayedText.length;
-						// Kecepatan adaptif: pelan jika sisa sedikit, cepat jika huruf menumpuk (biar tidak ngelag)
-						const charsToAppend = Math.max(1, Math.floor(diff / 8));
-
+						const charsToAppend = Math.max(1, Math.floor(diff / 5));
+				
 						displayedText += fullText.substring(displayedText.length, displayedText.length + charsToAppend);
-
+				
 						if (element) {
 							element.innerHTML = marked.parse(displayedText);
+							
 							const container = document.getElementById('chatContainer');
-							container.scrollTop = container.scrollHeight;
+							const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+							
+							if (isAtBottom) {
+								container.scrollTop = container.scrollHeight;
+							}
 						}
 					}
-				}, 15);
+				}, 40);
 
 				while (true) {
 					const { done, value } = await reader.read();
@@ -1593,7 +1569,7 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 			const div = document.createElement('div');
 			div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
 			div.innerHTML = `
-		       <div class="w-full bg-[#1a1a1a] border border-white/20 rounded-2xl p-4 shadow-sm group relative">
+		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
 		                <span class="text-xs font-black uppercase tracking-widest">
 		                    <div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>
@@ -1620,112 +1596,88 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 		}
 
 		async function saveMsg(uid, uText, aText, fileCardsHTML = "") {
-			const payload = { id: currentSessionId, user_id: uid, timestamp: Date.now() };
-			if (chatHistory.length <= 2) {
-				let cleanTitle = aText.split('\n')[0].replace(/[*#_`]/g, '').trim();
-				if (cleanTitle.length > 45) cleanTitle = cleanTitle.substring(0, 45).trim() + '...';
-				payload.title = cleanTitle;
-			}
+	const userTimestamp = Date.now();
+	const modelTimestamp = userTimestamp + 10;
+	
+	const userDateISO = new Date(userTimestamp).toISOString();
+	const modelDateISO = new Date(modelTimestamp).toISOString();
 
-			const finalUserText = fileCardsHTML ? uText + FILE_CARD_SEPARATOR + fileCardsHTML : uText;
+	const payload = { id: currentSessionId, user_id: uid };
+	
+	if (chatHistory.length <= 2) {
+		let cleanTitle = aText.split('\n')[0].replace(/[*#_`]/g, '').trim();
+		if (cleanTitle.length > 45) cleanTitle = cleanTitle.substring(0, 45).trim() + '...';
+		payload.title = cleanTitle;
+	}
 
-			try {
-				// Save to Supabase
-				if (payload.title) {
-					await _supabase.from('chat_sessions').upsert({
-						id: payload.id,
-						user_id: payload.user_id,
-						title: payload.title,
-						updated_at: new Date(payload.timestamp).toISOString()
-					});
-				} else {
-					await _supabase.from('chat_sessions').upsert({
-						id: payload.id,
-						user_id: payload.user_id,
-						updated_at: new Date(payload.timestamp).toISOString()
-					});
-				}
+	const finalUserText = fileCardsHTML ? uText + FILE_CARD_SEPARATOR + fileCardsHTML : uText;
 
-				await _supabase.from('chat_messages').insert([
-					{ session_id: currentSessionId, role: 'user', content: finalUserText, created_at: new Date().toISOString() },
-					{ session_id: currentSessionId, role: 'model', content: aText, created_at: new Date().toISOString() }
-				]);
-
-			} catch (e) {
-				console.error("Error saving msg:", e);
-			}
-		}
-
-		async function loadSession(id, isInitialLoad = false) {
-			currentSessionId = id;
-			let msgs = [];
-
-			const fetchSupabaseMessages = async () => {
-				try {
-					const { data, error } = await _supabase
-						.from('chat_messages')
-						.select('*')
-						.eq('session_id', id)
-						.order('created_at', { ascending: true });
-
-					if (!error && data && data.length > 0) {
-						msgs = data.map(m => ({
-							session_id: m.session_id,
-							role: m.role,
-							content: m.content,
-							timestamp: new Date(m.created_at).getTime()
-						}));
-						renderMessages(msgs);
-					}
-				} catch (e) {
-					console.error("Error loading chat from Supabase:", e);
-				}
-			};
-
-			await fetchSupabaseMessages();
-
-			function renderMessages(messageList) {
-				document.getElementById('messagesArea').innerHTML = '';
-				chatHistory = messageList.map(m => {
-					let text = m.content;
-					if (m.content.includes(FILE_CARD_SEPARATOR)) {
-						text = m.content.split(FILE_CARD_SEPARATOR)[0];
-					}
-					return { role: m.role, parts: [{ text: text }] };
-				});
-
-				messageList.forEach(m => {
-					let content = m.content;
-					let fileCards = "";
-					if (content.includes(FILE_CARD_SEPARATOR)) {
-						const parts = content.split(FILE_CARD_SEPARATOR);
-						content = parts[0];
-						fileCards = parts[1];
-					}
-					appendMsg(m.role, content, m.timestamp, fileCards);
-				});
-
-				hljs.highlightAll();
-			}
-
-			if (msgs.length > 0) {
-				renderMessages(msgs);
-			}
-		}
-
-		// typeWriter tidak diperlukan lagi — streaming langsung menampilkan teks real-time
-		function typeWriter(elementId, text) {
-			return new Promise(resolve => {
-				const element = document.getElementById(elementId);
-				if (!element) { resolve(""); return; }
-				element.innerHTML = marked.parse(text);
-				element.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-				currentStreamedText = text;
-				const container = document.getElementById('chatContainer');
-				container.scrollTop = container.scrollHeight;
-				resolve(text);
+	try {
+		if (payload.title) {
+			await _supabase.from('chat_sessions').upsert({
+				id: payload.id,
+				user_id: payload.user_id,
+				title: payload.title,
+				updated_at: userDateISO
+			});
+		} else {
+			await _supabase.from('chat_sessions').upsert({
+				id: payload.id,
+				user_id: payload.user_id,
+				updated_at: userDateISO
 			});
 		}
+
+		await _supabase.from('chat_messages').insert([
+			{ session_id: currentSessionId, role: 'user', content: finalUserText, created_at: userDateISO },
+			{ session_id: currentSessionId, role: 'model', content: aText, created_at: modelDateISO }
+		]);
+		
+	} catch (e) {
+		console.error("Error saving msg:", e);
+	}
+}
+
+		async function loadSession(id) {
+	currentSessionId = id;
+	document.getElementById('messagesArea').innerHTML = '';
+	chatHistory = [];
+
+	try {
+		const { data, error } = await _supabase
+			.from('chat_messages')
+			.select('*')
+			.eq('session_id', id)
+			.order('created_at', { ascending: true });
+
+		if (!error && data && data.length > 0) {
+			chatHistory = data.map(m => {
+				let text = m.content;
+				if (m.content.includes(FILE_CARD_SEPARATOR)) {
+					text = m.content.split(FILE_CARD_SEPARATOR)[0];
+				}
+				return { role: m.role, parts: [{ text: text }] };
+			});
+
+			data.forEach(m => {
+				let content = m.content;
+				let fileCards = "";
+				if (content.includes(FILE_CARD_SEPARATOR)) {
+					const parts = content.split(FILE_CARD_SEPARATOR);
+					content = parts[0];
+					fileCards = parts[1];
+				}
+				appendMsg(m.role, content, new Date(m.created_at).getTime(), fileCards);
+			});
+
+			hljs.highlightAll();
+			const container = document.getElementById('chatContainer');
+			container.scrollTop = container.scrollHeight;
+		}
+	} catch (e) {
+		console.error("Error loading chat from Supabase:", e);
+	}
+}
 
 		function copyMessageText(btn) {
 			const bubble = btn.closest('.group');
@@ -1807,7 +1759,7 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 			}
 		}
 
-		function setGeneratingState(s) {
+	function setGeneratingState(s) {
 			isGenerating = s;
 			const sendBtn = document.getElementById('sendBtn');
 			const userInput = document.getElementById('userInput');
@@ -1854,29 +1806,31 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 		async function confirmReset() {
 			try {
 				const { data: { session } } = await _supabase.auth.getSession();
-
-				// Clear Supabase
+				
 				if (session) {
-					// Menghapus semua percakapan milik user via Supabase.
-					// Karena RLS akan memastikan user hanya bisa menghapus miliknya sendiri, 
-					// kita panggil delete pada chat_sessions (chat_messages akan terhapus jika di cascade, atau RLS juga menghapusnya)
 					await _supabase
 						.from('chat_sessions')
 						.delete()
 						.eq('user_id', session.user.id);
 				}
-
+		
 				currentSessionId = Date.now().toString();
 				document.getElementById('messagesArea').innerHTML = '';
 				chatHistory = [];
-
+		
 				closeResetModal();
-				// Kembali ke halaman utama (tutup halaman pengaturan)
 				document.getElementById('adminScreen').classList.replace('flex', 'hidden');
 			} catch (e) {
 				showToast("Gagal mereset: " + e.message, "error");
 			}
 		}
+		
+		document.getElementById('settingsLogoutBtn').onclick = async () => {
+			localStorage.removeItem('awas_settings_kb');
+			localStorage.removeItem('awas_allow_upload');
+			localStorage.removeItem('awas_last_user_id');
+			_supabase.auth.signOut().then(() => location.reload());
+		};
 
 		document.getElementById('settingsBtn').onclick = () => {
 			document.getElementById('adminScreen').classList.replace('hidden', 'flex');
@@ -1891,6 +1845,15 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 			localStorage.removeItem('awas_settings_kb');
 			localStorage.removeItem('awas_allow_upload');
 			localStorage.removeItem('awas_last_user_id');
+			try {
+				const db = await getDB();
+				const tx = db.transaction(['chat_sessions', 'chat_messages', 'settings'], 'readwrite');
+				tx.objectStore('chat_sessions').clear();
+				tx.objectStore('chat_messages').clear();
+				tx.objectStore('settings').clear();
+			} catch (e) {
+				console.error("Kesalahan membersihkan IDB saat logout:", e);
+			}
 			_supabase.auth.signOut().then(() => location.reload());
 		};
 
@@ -1917,38 +1880,36 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 			}
 		};
 
-		// =============================================
 		async function init() {
 			lucide.createIcons();
 			const cachedUpload = localStorage.getItem('awas_allow_upload');
 			if (cachedUpload !== null) {
 				applyUploadUIState(cachedUpload === 'true');
 			}
-
+		
 			const { data: { session } } = await _supabase.auth.getSession();
-
+		
 			if (session) {
-				const lastUserId = localStorage.getItem('awas_last_user_id');
 				localStorage.setItem('awas_last_user_id', session.user.id);
-
+		
 				document.getElementById('loginScreen').style.display = 'none';
 				document.getElementById('appInterface').style.display = 'flex';
 				const settingsBtn = document.getElementById('settingsBtn');
 				settingsBtn.style.display = 'block';
-
+		
 				loadAdminSettings().then(() => {
 					lucide.createIcons();
 				});
-
+		
 				try {
 					const { data: spSessions, error: spError } = await _supabase
 						.from('chat_sessions')
 						.select('*')
 						.eq('user_id', session.user.id)
 						.order('updated_at', { ascending: false });
-
+		
 					if (!spError && spSessions && spSessions.length > 0) {
-						loadSession(spSessions[0].id, true);
+						loadSession(spSessions[0].id);
 					} else {
 						currentSessionId = Date.now().toString();
 					}
@@ -1960,8 +1921,8 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 				document.getElementById('loginScreen').style.display = 'flex';
 				document.getElementById('appInterface').style.display = 'none';
 			}
-			applyNativeKeyboardFix();
 		}
+
 
 		// --- LINK INTERCEPTION LOGIC (iOS Enhanced) ---
 		let pendingLinkUrl = null;
@@ -2113,8 +2074,7 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 					<polyline points="16 6 12 2 8 6" />
 					<line x1="12" y1="2" x2="12" y2="15" />
 				</svg>
-				di Safari, lalu cari <b class="text-slate-200 font-bold">Tambah ke Layar Utama <i
-						data-lucide="plus-square"
+				di Safari, lalu cari <b class="text-slate-200 font-bold">Tambah ke Layar Utama <i data-lucide="plus-square"
 						class="inline w-[18px] h-[18px] text-blue-400 outline-none translate-y-[-1px]"></i></b> untuk
 				instalasi.
 			</p>
@@ -2227,34 +2187,6 @@ Tugas utama kamu adalah Memberikan informasi terbaru dan akurat terkait pengawas
 			}
 		});
 
-		// Fix UI Freeze / Overscroll pada iOS lama
-		if (isIos()) {
-			const preventScrollLock = (e) => {
-				const el = e.currentTarget;
-				const top = el.scrollTop;
-				// Height of the element's content
-				const totalScroll = el.scrollHeight;
-				// Height of the element's visible area
-				const currentScroll = top + el.offsetHeight;
-
-				// Jika di paling atas, geser turun 1px
-				if (top === 0) {
-					el.scrollTop = 1;
-				}
-				// Jika di paling bawah, geser naik 1px
-				else if (currentScroll === totalScroll) {
-					el.scrollTop = top - 1;
-				}
-			};
-
-			// Tunggu DOM siap, lalu tempelkan event ke container yang bisa di-scroll
-			window.addEventListener('load', () => {
-				const scrollableEls = document.querySelectorAll('#chatContainer, #historyList, main, .custom-scroll');
-				scrollableEls.forEach(el => {
-					el.addEventListener('touchstart', preventScrollLock, { passive: true });
-				});
-			});
-		}
 	</script>
 </body>
 
