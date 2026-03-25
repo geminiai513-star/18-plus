@@ -94,32 +94,39 @@
 		rel="stylesheet">
 	<style>
 		html,
-body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    height: -webkit-fill-available;
-    width: 100vw;
-    overflow: hidden !important;
-    background-color: #000000;
-    font-family: 'Inter', sans-serif;
-    position: fixed;
-    top: 0;
-    left: 0;
-    overscroll-behavior: none !important;
-    -webkit-overflow-scrolling: touch;
-}
-
-#chatContainer {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    background-color: #000000;
-    position: relative;
-    overscroll-behavior-y: contain !important;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    contain: content;
-}
+		body {
+		    margin: 0;
+		    padding: 0;
+		    height: 100%;
+		    height: -webkit-fill-available;
+		    width: 100vw;
+		    overflow: hidden !important;
+		    background-color: #000000;
+		    font-family: 'Inter', sans-serif;
+		    position: fixed;
+		    top: 0;
+		    left: 0;
+		    overscroll-behavior: none !important;
+		    -webkit-overflow-scrolling: touch;
+		}
+		
+		#chatContainer {
+		    flex: 1 1 auto;
+		    overflow-y: auto;
+		    background-color: #000000;
+		    position: relative;
+		    overscroll-behavior-y: contain !important;
+		    -webkit-overflow-scrolling: touch;
+		    touch-action: pan-y;
+		    contain: content;
+		}
+		
+		.scroll-container {
+		    -webkit-overflow-scrolling: touch !important;
+		    overscroll-behavior-y: contain !important;
+		    position: relative;
+		    touch-action: pan-y !important;
+		}
 
 		*,
 		*::before,
@@ -567,7 +574,7 @@ body {
 			</div>
 		</header>
 
-		<main id="chatContainer" class="custom-scroll">
+		<main id="chatContainer" class="scroll-container custom-scroll">
 			<div class="content-width pt-4 pb-8">
 				<div id="messagesArea" class="space-y-4"></div>
 			</div>
@@ -648,7 +655,7 @@ body {
 			</div>
 		</header>
 
-		<main class="flex-1 overflow-y-auto bg-[#0a0a0a]">
+		<main class="scroll-container flex-1 overflow-y-auto bg-[#0a0a0a]">
 			<div class="content-width pt-4 pb-10 space-y-4">
 				<div class="w-full bg-white/5 border border-white/10 rounded-2xl p-5 shadow-sm">
 					<div class="mb-4">
@@ -1874,38 +1881,29 @@ body {
 		};
 		
 		(function() {
-    const container = document.getElementById('chatContainer');
-    if (!container) return;
-
-    container.addEventListener('touchstart', function() {
-        const top = container.scrollTop;
-        const totalScroll = container.scrollHeight;
-        const currentScroll = top + container.offsetHeight;
-
-        if (top === 0) {
-            container.scrollTop = 1;
-        } else if (currentScroll === totalScroll) {
-            container.scrollTop = top - 1;
-        }
-    }, { passive: true });
-
-    document.addEventListener('touchmove', function(e) {
-        let isScrollable = false;
-        let el = e.target;
-
-        while (el && el !== document.body) {
-            if (el === container) {
-                isScrollable = true;
-                break;
-            }
-            el = el.parentElement;
-        }
-
-        if (!isScrollable) {
-            if (e.cancelable) e.preventDefault();
-        }
-    }, { passive: false });
-})();
+		    document.addEventListener('touchstart', function(e) {
+		        const scroller = e.target.closest('.scroll-container');
+		        if (!scroller) return;
+		
+		        const top = scroller.scrollTop;
+		        const totalScroll = scroller.scrollHeight;
+		        const currentScroll = top + scroller.offsetHeight;
+		
+		        if (top <= 0) {
+		            scroller.scrollTop = 1;
+		        } else if (currentScroll >= totalScroll) {
+		            scroller.scrollTop = top - 1;
+		        }
+		    }, { passive: true });
+		
+		    document.addEventListener('touchmove', function(e) {
+		        const scroller = e.target.closest('.scroll-container');
+		        
+		        if (!scroller) {
+		            if (e.cancelable) e.preventDefault();
+		        }
+		    }, { passive: false });
+		})();
 
 		async function init() {
 			lucide.createIcons();
