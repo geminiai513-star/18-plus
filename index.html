@@ -139,9 +139,41 @@
 
 		.prose,
 		.prose * {
-			-webkit-user-select: text !important;
-			user-select: text !important;
-			cursor: text;
+		    -webkit-user-select: text !important;
+		    user-select: text !important;
+		    cursor: text;
+		}
+		
+		/* Tambahkan/Update Bagian Ini */
+		.prose {
+		    max-width: 100% !important;
+		    overflow-x: hidden !important;
+		    word-wrap: break-word;
+		}
+		
+		.prose pre {
+		    background: #1e1e1e !important;
+		    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+		    padding: 1rem !important;
+		    border-radius: 1rem !important;
+		    margin: 0.75rem 0;
+		    overflow-x: auto !important; /* Hanya blok kode yang boleh scroll horizontal */
+		    display: block;
+		    width: 100%;
+		}
+		
+		.prose table {
+		    border-collapse: separate;
+		    border-spacing: 0;
+		    margin: 1rem 0;
+		    font-size: 0.875rem;
+		    display: block;
+		    max-width: 100%;
+		    width: max-content;
+		    overflow-x: auto !important; /* Hanya tabel yang boleh scroll horizontal */
+		    -webkit-overflow-scrolling: touch;
+		    border-top: 1px solid rgba(255, 255, 255, 0.2);
+		    border-left: 1px solid rgba(255, 255, 255, 0.2);
 		}
 
 		input,
@@ -1536,39 +1568,39 @@
 		}
 
 		function appendMsg(role, text, timestamp, fileCardsHTML = "") {
-			const area = document.getElementById('messagesArea');
-			const isUser = role === 'user';
-			const div = document.createElement('div');
-			div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
-
-			const timeStr = timestamp
-				? new Date(timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-				: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-
-			const label = isUser ? 'ANDA' : `<div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>`;
-
-			const copyBtn = !isUser ? `<div class="w-full flex justify-end mt-2 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>` : '';
-
-			div.innerHTML = `
+		    const area = document.getElementById('messagesArea');
+		    const isUser = role === 'user';
+		    const div = document.createElement('div');
+		    div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
+		
+		    const timeStr = timestamp
+		        ? new Date(timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+		        : new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+		
+		    const label = isUser ? 'ANDA' : `<div class="w-5 h-5 bg-gradient-to-r from-blue-600 to-cyan-400" style="-webkit-mask: url('icon/icon.png') no-repeat center; mask: url('icon/icon.png') no-repeat center; -webkit-mask-size: contain; mask-size: contain;"></div>`;
+		
+		    const copyBtn = !isUser ? `<div class="w-full flex justify-end mt-2 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>` : '';
+		
+		    div.innerHTML = `
 		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
 		                <span class="text-xs font-black uppercase tracking-widest ${isUser ? 'text-white' : 'text-blue-400'}">${label}</span>
 		                <span class="text-xs font-medium text-slate-300">${timeStr}</span>
 		            </div>
-		            <div class="prose prose-invert max-w-none overflow-x-auto text-white text-[15px] font-medium leading-relaxed [&>p:last-child]:!mb-0">${marked.parse(text)}</div>
+		            <div class="prose prose-invert max-w-none text-white text-[15px] font-medium leading-relaxed [&>p:last-child]:!mb-0">${marked.parse(text)}</div>
 		            <div class="user-file-cards grid grid-cols-2 md:grid-cols-4 gap-2 empty:hidden mt-2">${fileCardsHTML}</div>
 		            ${copyBtn}
 		        </div>`;
-			area.appendChild(div);
+		    area.appendChild(div);
 		}
 
 		function appendTypingBubble() {
-			const area = document.getElementById('messagesArea');
-			const msgId = `msg-${Date.now()}`;
-			const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-			const div = document.createElement('div');
-			div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
-			div.innerHTML = `
+		    const area = document.getElementById('messagesArea');
+		    const msgId = `msg-${Date.now()}`;
+		    const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+		    const div = document.createElement('div');
+		    div.className = "w-full animate-in fade-in slide-in-from-bottom-2 duration-300 mb-2";
+		    div.innerHTML = `
 		        <div class="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shadow-sm group relative">
 		            <div class="flex justify-between items-center border-b-[0.5px] border-white/10 pb-1.5 mb-2">
 		                <span class="text-xs font-black uppercase tracking-widest">
@@ -1576,7 +1608,7 @@
 		                </span>
 		                <span class="text-xs font-medium text-slate-300">${timeStr}</span>
 		            </div>
-		            <div id="${msgId}" class="prose prose-invert max-w-none overflow-x-auto text-white text-[15px] font-medium leading-relaxed [&>p:last-child]:!mb-0 min-h-[24px]">
+		            <div id="${msgId}" class="prose prose-invert max-w-none text-white text-[15px] font-medium leading-relaxed [&>p:last-child]:!mb-0 min-h-[24px]">
 		                <div class="flex items-baseline gap-1 text-[14px] text-slate-300">
 		                    Thinking
 		                    <div class="flex gap-1 translate-y-[1px]">
@@ -1588,96 +1620,96 @@
 		            </div>
 		            <div class="w-full flex justify-end mt-2 -mb-2"><button class="copy-msg-btn" onclick="copyMessageText(this)" title="Salin"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div>
 		        </div>`;
-			area.appendChild(div);
-
-			const container = document.getElementById('chatContainer');
-			container.scrollTop = container.scrollHeight;
-			return msgId;
-		}
-
-		async function saveMsg(uid, uText, aText, fileCardsHTML = "") {
-	const userTimestamp = Date.now();
-	const modelTimestamp = userTimestamp + 10;
-	
-	const userDateISO = new Date(userTimestamp).toISOString();
-	const modelDateISO = new Date(modelTimestamp).toISOString();
-
-	const payload = { id: currentSessionId, user_id: uid };
-	
-	if (chatHistory.length <= 2) {
-		let cleanTitle = aText.split('\n')[0].replace(/[*#_`]/g, '').trim();
-		if (cleanTitle.length > 45) cleanTitle = cleanTitle.substring(0, 45).trim() + '...';
-		payload.title = cleanTitle;
-	}
-
-	const finalUserText = fileCardsHTML ? uText + FILE_CARD_SEPARATOR + fileCardsHTML : uText;
-
-	try {
-		if (payload.title) {
-			await _supabase.from('chat_sessions').upsert({
-				id: payload.id,
-				user_id: payload.user_id,
-				title: payload.title,
-				updated_at: userDateISO
-			});
-		} else {
-			await _supabase.from('chat_sessions').upsert({
-				id: payload.id,
-				user_id: payload.user_id,
-				updated_at: userDateISO
-			});
-		}
-
-		await _supabase.from('chat_messages').insert([
-			{ session_id: currentSessionId, role: 'user', content: finalUserText, created_at: userDateISO },
-			{ session_id: currentSessionId, role: 'model', content: aText, created_at: modelDateISO }
-		]);
+		    area.appendChild(div);
 		
-	} catch (e) {
-		console.error("Error saving msg:", e);
-	}
-}
+		    const container = document.getElementById('chatContainer');
+		    container.scrollTop = container.scrollHeight;
+		    return msgId;
+		}
+		
+		async function saveMsg(uid, uText, aText, fileCardsHTML = "") {
+			const userTimestamp = Date.now();
+			const modelTimestamp = userTimestamp + 10;
+			
+			const userDateISO = new Date(userTimestamp).toISOString();
+			const modelDateISO = new Date(modelTimestamp).toISOString();
+		
+			const payload = { id: currentSessionId, user_id: uid };
+			
+			if (chatHistory.length <= 2) {
+				let cleanTitle = aText.split('\n')[0].replace(/[*#_`]/g, '').trim();
+				if (cleanTitle.length > 45) cleanTitle = cleanTitle.substring(0, 45).trim() + '...';
+				payload.title = cleanTitle;
+			}
+		
+			const finalUserText = fileCardsHTML ? uText + FILE_CARD_SEPARATOR + fileCardsHTML : uText;
+		
+			try {
+				if (payload.title) {
+					await _supabase.from('chat_sessions').upsert({
+						id: payload.id,
+						user_id: payload.user_id,
+						title: payload.title,
+						updated_at: userDateISO
+					});
+				} else {
+					await _supabase.from('chat_sessions').upsert({
+						id: payload.id,
+						user_id: payload.user_id,
+						updated_at: userDateISO
+					});
+				}
+		
+				await _supabase.from('chat_messages').insert([
+					{ session_id: currentSessionId, role: 'user', content: finalUserText, created_at: userDateISO },
+					{ session_id: currentSessionId, role: 'model', content: aText, created_at: modelDateISO }
+				]);
+				
+			} catch (e) {
+				console.error("Error saving msg:", e);
+			}
+		}
 
 		async function loadSession(id) {
-	currentSessionId = id;
-	document.getElementById('messagesArea').innerHTML = '';
-	chatHistory = [];
-
-	try {
-		const { data, error } = await _supabase
-			.from('chat_messages')
-			.select('*')
-			.eq('session_id', id)
-			.order('created_at', { ascending: true });
-
-		if (!error && data && data.length > 0) {
-			chatHistory = data.map(m => {
-				let text = m.content;
-				if (m.content.includes(FILE_CARD_SEPARATOR)) {
-					text = m.content.split(FILE_CARD_SEPARATOR)[0];
+			currentSessionId = id;
+			document.getElementById('messagesArea').innerHTML = '';
+			chatHistory = [];
+		
+			try {
+				const { data, error } = await _supabase
+					.from('chat_messages')
+					.select('*')
+					.eq('session_id', id)
+					.order('created_at', { ascending: true });
+		
+				if (!error && data && data.length > 0) {
+					chatHistory = data.map(m => {
+						let text = m.content;
+						if (m.content.includes(FILE_CARD_SEPARATOR)) {
+							text = m.content.split(FILE_CARD_SEPARATOR)[0];
+						}
+						return { role: m.role, parts: [{ text: text }] };
+					});
+		
+					data.forEach(m => {
+						let content = m.content;
+						let fileCards = "";
+						if (content.includes(FILE_CARD_SEPARATOR)) {
+							const parts = content.split(FILE_CARD_SEPARATOR);
+							content = parts[0];
+							fileCards = parts[1];
+						}
+						appendMsg(m.role, content, new Date(m.created_at).getTime(), fileCards);
+					});
+		
+					hljs.highlightAll();
+					const container = document.getElementById('chatContainer');
+					container.scrollTop = container.scrollHeight;
 				}
-				return { role: m.role, parts: [{ text: text }] };
-			});
-
-			data.forEach(m => {
-				let content = m.content;
-				let fileCards = "";
-				if (content.includes(FILE_CARD_SEPARATOR)) {
-					const parts = content.split(FILE_CARD_SEPARATOR);
-					content = parts[0];
-					fileCards = parts[1];
-				}
-				appendMsg(m.role, content, new Date(m.created_at).getTime(), fileCards);
-			});
-
-			hljs.highlightAll();
-			const container = document.getElementById('chatContainer');
-			container.scrollTop = container.scrollHeight;
+			} catch (e) {
+				console.error("Error loading chat from Supabase:", e);
+			}
 		}
-	} catch (e) {
-		console.error("Error loading chat from Supabase:", e);
-	}
-}
 
 		function copyMessageText(btn) {
 			const bubble = btn.closest('.group');
